@@ -1,95 +1,32 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client"
+import './Calendar.css';
+import Calendar from "@/components/Calendar";
+import {useEffect, useState} from "react";
 
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.js</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+const Page = () => {
+  const workMonth = 6;
+  const [selectedDates, setSelectedDates] = useState(new Set);
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  const setTotalDates = (dates) => {
+    setSelectedDates(dates)
+  }
+
+  return <>
+    <div style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
+      <h2>지급</h2>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth - 2} currentMonth={workMonth}/>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth - 1} currentMonth={workMonth}/>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth} currentMonth={workMonth}/>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth + 1} currentMonth={workMonth} shade={true}/>
     </div>
-  );
+    <div style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
+      <h2>환급</h2>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth - 3} currentMonth={workMonth - 1} shade={false}/>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth - 2} currentMonth={workMonth - 1}/>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth - 1} currentMonth={workMonth - 1}/>
+      <Calendar totalSelectedDates={selectedDates} setTotalDates={setTotalDates} year={2025} month={workMonth} currentMonth={workMonth - 1}/>
+    </div>
+  </>
 }
+
+export default Page;
