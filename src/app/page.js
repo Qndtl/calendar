@@ -68,12 +68,23 @@ const Page = () => {
           const firstOfOneMonth = oneMonths[0];
           const firstDate = new Date(firstOfOneMonth);
           const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
-          const filtered = merged.filter((item) => {
+          const filtered1 = merged.filter((item) => {
+            const date = new Date(item);
+            return date >= firstDate && date <= lastFromFirstDate;
+          })
+          const filtered2 = merged.filter((item) => {
             const date = new Date(item);
             return date >= firstDate;// && date <= lastFromFirstDate;
           })
-          deductibles8.push(filtered[7])
-          deductiblesOver.push(...filtered.slice(8))
+          if(filtered1.length < 8) { // 전월 첫 출역 ~ 전월 첫 출역 + 30 8일 미만
+            console.log('전월 첫 출역 ~ 전월 첫 출역 + 30 8일 미만')
+            deductibles8.push(thisMonths[7])
+            deductiblesOver.push(...thisMonths.slice(8))
+          } else { // 전월 첫 출역 ~ 전월 첫 출역 + 30 8일 이상
+            console.log('전월 첫 출역 ~ 전월 첫 출역 + 30 8일 이상')
+            deductibles8.push(filtered2[7])
+            deductiblesOver.push(...filtered2.slice(8))
+          }
         }
       } else { // 전전월 출역 있음
         console.log('전전월 출역 있음')
