@@ -8,6 +8,7 @@ const Page = () => {
   const [workMonth, setWorkMonth] = useState(6);
   const [totalSelectedDates, setTotalSelectedDates] = useState(new Set);
   const [deductibles, setDeductibles] = useState({eight: [], over: []});
+  const [type, setType] = useState('mark')
 
   const setTotalDates = (dates) => {
     setTotalSelectedDates(dates)
@@ -53,6 +54,112 @@ const Page = () => {
     // console.log('당월', thisMonths.sort())
     const deductibles8 = [];
     const deductiblesOver = [];
+
+    if(type === 'mark') {
+      if(twoMonths.length < 1) { // 전전월 출역 없음
+        console.log('전전월 출역 없음')
+        if(oneMonths.length < 1) { // 전월 출역 없음
+          console.log('전월 출역 없음')
+          deductibles8.push(thisMonths[7])
+          deductiblesOver.push(...thisMonths.slice(8))
+        } else { // 전월 출역 있음
+          console.log('전월 출역 있음 전월 첫 출역일 ~ 당월 말일')
+          const merged = [...oneMonths, ...thisMonths];
+          const firstOfOneMonth = oneMonths[0];
+          const firstDate = new Date(firstOfOneMonth);
+          const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+          const filtered = merged.filter((item) => {
+            const date = new Date(item);
+            return date >= firstDate;// && date <= lastFromFirstDate;
+          })
+          deductibles8.push(filtered[7])
+          deductiblesOver.push(...filtered.slice(8))
+        }
+      } else { // 전전월 출역 있음
+        console.log('전전월 출역 있음')
+        if(oneMonths.length < 1) { // 전월 출역 없음
+          console.log('전월 출역 없음')
+          deductibles8.push(thisMonths[7])
+          deductiblesOver.push(...thisMonths.slice(8))
+        } else { // 전월 출역 있음
+          console.log('전월 출역 있음 전월 첫 출역일 ~ 전월 + 30일')
+          const merged = [...oneMonths, ...thisMonths];
+          const firstOfOneMonth = oneMonths[0];
+          const firstDate = new Date(firstOfOneMonth);
+          const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+          const filtered = merged.filter((item) => {
+            const date = new Date(item);
+            return date >= firstDate && date <= lastFromFirstDate;
+          })
+          deductibles8.push(filtered[7])
+          deductiblesOver.push(...filtered.slice(8))
+        }
+      }
+      return {eight: deductibles8, over: deductiblesOver}
+    }
+
+    if(type === 'sasha') {
+      if(twoMonths.length < 1) { // 전전월 출역 없음
+        console.log('전전월 출역 없음')
+        deductibles8.push(thisMonths[7])
+        deductiblesOver.push(...thisMonths.slice(8))
+      } else {
+        console.log('전전월 출역 있음')
+        if(oneMonths[0].endsWith('-01')) { // 전월 초일 출역
+          console.log('전월 초일 출역')
+          deductibles8.push(thisMonths[7])
+          deductiblesOver.push(...thisMonths.slice(8))
+        } else { // 전월 초일 출역 안함
+          console.log('전월 초일 출역 안함')
+          if(oneMonths.length <= 7) {// 전월 출역 7일 이하
+            console.log('전월 출역 7일 이하')
+            if(oneMonths[0].endsWith('01-30') || oneMonths[0].endsWith('01-31')) { // 전월 첫 출역일 1월 30 또는 31일
+              console.log('전월 첫 출역일 1월 30 또는 31일')
+              const merged = [...oneMonths, ...thisMonths];
+              if(merged.length === 8) { // 전월 첫출역 ~ 당월 말일 8일
+                console.log('전월 첫출역 ~ 당월 말일')
+                deductibles8.push(merged[7])
+                deductiblesOver.push(...merged.slice(8))
+              } else if (merged.length > 8) { // 전월 첫출역 ~ 당월 말일 8일 초과
+                console.log('전월 첫출역 ~ 당월 말일 8일 초과')
+                deductibles8.push(merged[7])
+                deductiblesOver.push(...merged.slice(8))
+              } else { // 전월 첫출역 ~ 당월 말일 8일 미만
+                console.log('전월 첫출역 ~ 당월 말일 8일 미만')
+                deductibles8.push(thisMonths[7])
+                deductiblesOver.push(...thisMonths.slice(8))
+              }
+            } else {// 전월 첫 출역일 1월 30 또는 31일 아님
+              console.log('전월 첫 출역일 1월 30 또는 31일 아님')
+              const merged = [...oneMonths, ...thisMonths].sort();
+              const firstOfOneMonth = oneMonths[0];
+              const firstDate = new Date(firstOfOneMonth);
+              const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+              const filtered = merged.filter((item) => {
+                const date = new Date(item);
+                return date >= firstDate && date <= lastFromFirstDate;
+              })
+              if(filtered.length === 8) { // 전월 초 ~ 전월 말 8일
+                console.log('전월 초 ~ 전월 말 8일')
+                deductibles8.push(thisMonths[7])
+              } else if (filtered.length > 8) {
+                console.log('전월 초 ~ 전월 말 8일 초과')
+                deductiblesOver.push(...filtered.slice(8))
+              } else { // 전월 초 ~ 전월 말 8일 미만
+                console.log('전월 초 ~ 전월 말 8일')
+                deductibles8.push(thisMonths[7])
+                deductiblesOver.push(...thisMonths.slice(8))
+              }
+            }
+          } else { // 전월 출역 7일 초과
+            console.log('전월 출역 7일 초과')
+            deductibles8.push(thisMonths[7])
+            deductiblesOver.push(...thisMonths.slice(8))
+          }
+        }
+      }
+      return {eight: deductibles8, over: deductiblesOver}
+    }
 
     if(oneMonths.length >= 1) { // 전월 출역 있는 경우
       console.log('전월 출역 있는 경우')
@@ -155,26 +262,30 @@ const Page = () => {
       'eight': deductibles8 ?? [],
       'over': deductiblesOver ?? [],
     };
-  }, [workMonth])
+  }, [type, workMonth])
 
   useEffect(() => {
     const groupedDates = groupByYearMonth1(totalSelectedDates)
 
     const deductibleDates = checkDeductibleDates(groupedDates);
     setDeductibles(deductibleDates);
-  }, [checkDeductibleDates, totalSelectedDates]);
+  }, [type, workMonth, checkDeductibleDates, totalSelectedDates]);
 
-  return <div>
+  return <div style={{height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
     <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
-      <button style={{width: '80px', height: '20px'}} onClick={reset}>reset</button>
-      <select value={parseInt(workMonth)} onChange={(e) => setWorkMonth(e.target.value)}>
-        <option value="">선택하세요</option>
-        <option key={2} value={2}>{2}</option>
-        <option key={6} value={6}>{6}</option>
+      <button style={{width: '80px', height: '30px'}} onClick={reset}>reset</button>
+      <select style={{width: '80px', height: '30px'}} value={parseInt(workMonth)} onChange={(e) => setWorkMonth(e.target.value)}>
+        <option key={2} value={2}>2월</option>
+        <option key={6} value={6}>6월</option>
+      </select>
+      <select style={{width: '80px', height: '30px'}} value={type} onChange={(e) => setType(e.target.value)}>
+        <option key={'chuck'} value={'chuck'}>척</option>
+        <option key={'sasha'} value={'sasha'}>사샤</option>
+        <option key={'mark'} value={'mark'}>마크</option>
       </select>
     </div>
     <div style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
-      <h2>지급</h2>
+      {/*<h2>지급</h2>*/}
       <Calendar
         deductibles={deductibles}
         totalSelectedDates={totalSelectedDates}

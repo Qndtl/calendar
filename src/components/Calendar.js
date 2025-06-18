@@ -108,7 +108,7 @@ const Calendar = ({ deductibles, year, month, totalSelectedDates, setTotalDates,
       onMouseUp={handleMouseUp}
       onMouseLeave={() => setIsDragging(false)}
     >
-      <h2 className="calendar-title" style={currentMonth === month ? {backgroundColor: 'yellow'} : null}>{year}년 {month}월</h2>
+      <h2 className="calendar-title" style={currentMonth === month ? {backgroundColor: 'yellow'} : null}>{year}년 {month}월 - 출역 {selfDates.size}회</h2>
       <div className="calendar-grid calendar-header">
         {days.map((day, idx) => (
           <div
@@ -146,7 +146,6 @@ const Calendar = ({ deductibles, year, month, totalSelectedDates, setTotalDates,
           );
         })}
       </div>
-      <div style={{marginTop: '10px'}}>{month}월 출역 수: {selfDates.size}</div>
     </div>
   );
 };
