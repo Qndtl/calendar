@@ -4,7 +4,7 @@ import {useEffect, useMemo, useState} from "react"; // 별도 CSS 파일 불러�
 
 const days = ['일', '월', '화', '수', '목', '금', '토'];
 
-const Calendar = ({ isPay, year, month, totalSelectedDates, setTotalDates, currentMonth, shade = false }) => {
+const Calendar = ({ deductibles, year, month, totalSelectedDates, setTotalDates, currentMonth, shade = false }) => {
   const [dragStart, setDragStart] = useState(null);
   const [dragEnd, setDragEnd] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -131,14 +131,15 @@ const Calendar = ({ isPay, year, month, totalSelectedDates, setTotalDates, curre
 
           const key = date ? getKey(date) : '';
           const isSelected = totalSelectedDates.has(key);
-
+          const isEight = deductibles?.eight.includes(key);
+          const isOverEight = deductibles?.over.includes(key);
           return (
             <div
               key={idx}
               className={`calendar-cell ${className} ${isSelected ? 'selected' : ''}`}
               onMouseDown={(e) => handleMouseDown(date, e)}
               onMouseEnter={() => handleMouseEnter(date)}
-              style={{ userSelect: 'none' }}
+              style={{ userSelect: 'none', backgroundColor: isEight ? 'black' : isOverEight ? 'grey' : null }}
             >
               {date || ''}
             </div>
