@@ -222,9 +222,10 @@ const Page = () => {
                 console.log('전월 첫 ~ +30일 8일 이상')
                 const filtered2 = thisMonths.filter((item) => {
                   const date = new Date(item);
-                  return date > lastFromFirstDate;
+                  const eighth = new Date(filtered[7]);
+                  return date > eighth; // todo: 얘가 전월 8일째 여야 함
                 })
-                deductibles8.push(filtered[filtered.length - 1])
+                deductibles8.push(filtered[7])
                 if(thisMonths.length >= 8) { // 당월 8일 이상
                   deductiblesOver.push(...filtered2)
                 }
