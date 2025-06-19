@@ -8,7 +8,7 @@ const Page = () => {
   const [workMonth, setWorkMonth] = useState(6);
   const [totalSelectedDates, setTotalSelectedDates] = useState(new Set);
   const [deductibles, setDeductibles] = useState({eight: [], over: []});
-  const [type, setType] = useState('mark')
+  const [type, setType] = useState('chuck')
 
   const setTotalDates = (dates) => {
     setTotalSelectedDates(dates)
@@ -206,46 +206,27 @@ const Page = () => {
               }
             } else { // 전월 첫 출역일 = 1월 30일 또는 1월 31일 아닌 경우
               console.log('전월 첫 출역일 = 1월 30일 또는 1월 31일 아닌 경우')
-              if(thisMonths.length < 8) { // 당월 1일 ~ 말일 출역 8일 미만
-                const merged = [...oneMonths, ...thisMonths].sort();
-                const firstOfOneMonth = oneMonths[0];
-                const firstDate = new Date(firstOfOneMonth);
-                const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
-                const filtered = merged.filter((item) => {
+              const merged = [...oneMonths, ...thisMonths].sort();
+              const firstOfOneMonth = oneMonths[0];
+              const firstDate = new Date(firstOfOneMonth);
+              const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+              const filtered = merged.filter((item) => {
+                const date = new Date(item);
+                return date >= firstDate && date <= lastFromFirstDate;
+              })
+              if(filtered.length < 8) { // 전월 첫 ~ +30일 8일 미만
+                console.log('전월 첫 ~ +30일 8일 미만')
+                deductibles8.push(thisMonths[7])
+                deductiblesOver.push(...thisMonths.slice(8))
+              } else { // 전월 첫 ~ +30일 8일 이상
+                console.log('전월 첫 ~ +30일 8일 이상')
+                const filtered2 = thisMonths.filter((item) => {
                   const date = new Date(item);
-                  return date >= firstDate && date <= lastFromFirstDate;
+                  return date > lastFromFirstDate;
                 })
-                if(filtered.length === 8) { // 전월 첫출역일 ~ 전월 첫출역일 + 30 8일 출역인 경우
-                  console.log('전월 첫출역일 ~ 전월 첫출역일 + 30 8일 출역인 경우')
-                  deductibles8.push(filtered[7])
-                  deductiblesOver.push(...filtered.slice(8))
-                } else if (filtered.length > 8) { // 전월 첫출역일 ~ 전월 첫출역일 + 30 8일 초과인 경우
-                  console.log('전월 첫출역일 ~ 전월 첫출역일 + 30 8일 초과인 경우')
-                  deductibles8.push(filtered[7])
-                  deductiblesOver.push(...filtered.slice(8))
-                } else {
-                  console.log('전월 첫출역일 ~ 전월 첫출역일 + 30 8일 미만인 경우')
-                  deductibles8.push(thisMonths[7])
-                  deductiblesOver.push(...thisMonths.slice(8))
-                }
-              } else { // 당월 1일 ~ 말일 출역 8일 이상
-                console.log('당월 1일 ~ 말일 출역 8일 이상')
-                const merged = [...oneMonths, ...thisMonths].sort();
-                const firstOfOneMonth = oneMonths[0];
-                const firstDate = new Date(firstOfOneMonth);
-                const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
-                const filtered = merged.filter((item) => {
-                  const date = new Date(item);
-                  return date >= firstDate;
-                })
-                if(thisMonths.length === 8) { // 당월 8일
-                  console.log('당월 8일')
-                  deductibles8.push(filtered[7])
-                  deductiblesOver.push(...filtered.slice(8))
-                } else { // 당월 8일 이상
-                  console.log('당월 8일 이상')
-                  deductibles8.push(filtered[7])
-                  deductiblesOver.push(...filtered.slice(8))
+                deductibles8.push(filtered[filtered.length - 1])
+                if(thisMonths.length >= 8) { // 당월 8일 이상
+                  deductiblesOver.push(...filtered2)
                 }
               }
             }
