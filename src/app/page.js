@@ -71,43 +71,64 @@ const calculateHealthInsuranceDeduction = (groupedDates, workMonth) => {
   let deductibles8 = [];
   let deductiblesOver = [];
 
-  if (sortedDates.oneMonthAgo.length >= 1) {
-    console.log('전월 출역 있는 경우');
-
-    if (sortedDates.twoMonthsAgo.length >= 1) {
-      console.log('전전월 출역이 있는 경우');
-      deductibles8.push(sortedDates.currentMonth[7]);
-      deductiblesOver.push(...sortedDates.currentMonth.slice(8));
-    } else {
-      console.log('전전월 출역이 없는 경우');
-
-      if (isFirstDayOfMonth(sortedDates.oneMonthAgo[0], parseInt(workMonth) - 1)) {
-        console.log('전월 초일 출역한 경우');
-        deductibles8.push(sortedDates.currentMonth[7]);
-        deductiblesOver.push(...sortedDates.currentMonth.slice(8));
-      } else {
-        console.log('전월 초일 출역 안한 경우');
-
-        if (sortedDates.oneMonthAgo.length <= 7) {
-          const result = handlePartialPreviousMonth(
-            sortedDates.oneMonthAgo,
-            sortedDates.currentMonth,
-            workMonth
-          );
-          deductibles8 = result.eight;
-          deductiblesOver = result.over;
-        } else {
-          console.log('전월 첫출역일 ~ 전월 말일 출역 7일 초과인 경우');
-          deductibles8.push(sortedDates.currentMonth[7]);
-          deductiblesOver.push(...sortedDates.currentMonth.slice(8));
-        }
-      }
-    }
-  } else {
+// 전월 출역이 없는 경우 - early return
+  if (sortedDates.oneMonthAgo.length < 1) {
     console.log('전월 출역이 없는 경우');
     deductibles8.push(sortedDates.currentMonth[7]);
     deductiblesOver.push(...sortedDates.currentMonth.slice(8));
+    return {
+      eight: deductibles8.filter(Boolean),
+      over: deductiblesOver.filter(Boolean)
+    };
   }
+
+  console.log('전월 출역 있는 경우');
+
+// 전전월 출역이 있는 경우 - early return
+  if (sortedDates.twoMonthsAgo.length >= 1) {
+    console.log('전전월 출역이 있는 경우');
+    deductibles8.push(sortedDates.currentMonth[7]);
+    deductiblesOver.push(...sortedDates.currentMonth.slice(8));
+    return {
+      eight: deductibles8.filter(Boolean),
+      over: deductiblesOver.filter(Boolean)
+    };
+  }
+
+  console.log('전전월 출역이 없는 경우');
+
+// 전월 초일 출역한 경우 - early return
+  if (isFirstDayOfMonth(sortedDates.oneMonthAgo[0], parseInt(workMonth) - 1)) {
+    console.log('전월 초일 출역한 경우');
+    deductibles8.push(sortedDates.currentMonth[7]);
+    deductiblesOver.push(...sortedDates.currentMonth.slice(8));
+    return {
+      eight: deductibles8.filter(Boolean),
+      over: deductiblesOver.filter(Boolean)
+    };
+  }
+
+  console.log('전월 초일 출역 안한 경우');
+
+// 전월 출역일수가 7일 이하인 경우 - early return
+  if (sortedDates.oneMonthAgo.length <= 7) {
+    const result = handlePartialPreviousMonth(
+      sortedDates.oneMonthAgo,
+      sortedDates.currentMonth,
+      workMonth
+    );
+    deductibles8 = result.eight;
+    deductiblesOver = result.over;
+    return {
+      eight: deductibles8.filter(Boolean),
+      over: deductiblesOver.filter(Boolean)
+    };
+  }
+
+// 전월 첫출역일 ~ 전월 말일 출역 7일 초과인 경우 (마지막 케이스)
+  console.log('전월 첫출역일 ~ 전월 말일 출역 7일 초과인 경우');
+  deductibles8.push(sortedDates.currentMonth[7]);
+  deductiblesOver.push(...sortedDates.currentMonth.slice(8));
 
   return {
     eight: deductibles8.filter(Boolean),
