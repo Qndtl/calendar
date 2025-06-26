@@ -195,8 +195,8 @@ const handleNormalDateCase = (oneMonthAgo, currentMonth) => {
 
 // 국민연금 공제 계산 로직
 const calculatePensionDeduction = (groupedDates, workMonth, wage) => {
-  console.clear();
-  console.log('국민연금 계산');
+  //console.clear();
+  console.log('%c국민연금 공제 대상 체크 시작', 'color: #ff0000');
 
   const currentMonthDates = groupedDates[getMonthKey(workMonth, 0)] || [];
   const sortedDates = currentMonthDates.sort();
@@ -323,7 +323,7 @@ const Page = () => {
         <Calendar
           key={offset}
           deductibles={deductibleData}
-          {...getCalendarProps(offset, offset === 2)}
+          {...getCalendarProps(offset, offset === null)}
         />
       ))}
     </div>
