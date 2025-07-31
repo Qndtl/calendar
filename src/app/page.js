@@ -118,89 +118,62 @@ const calculateHealthInsuranceDeduction = (groupedDates, workMonth) => {
     };
   }
 
+
+
+  //// todo: 여기서 부터
   console.log('전월 초일 출역 안한 경우');
 
-// 전월 출역일수가 7일 이하인 경우 - early return
-  if (sortedDates.oneMonthAgo.length <= 7) {
-    const result = handlePartialPreviousMonth(
-      sortedDates.oneMonthAgo,
-      sortedDates.currentMonth,
-      workMonth
-    );
-    deductibles8 = result.eight;
-    deductiblesOver = result.over;
+  const firstDateOfOneMonthAgo = oneMonthAgo[0];
+  const isSpecialCase = firstDateOfOneMonthAgo.endsWith('-01-30') || firstDateOfOneMonthAgo.endsWith('-01-31');
+  console.log('전월 첫 출역일이 1월 30일 또는 1월 31일인 경우');
+
+  // 전월 + 당월
+  const merged = [...oneMonthAgo, ...currentMonth].sort();
+  if(isSpecialCase) {
+    console.log('전월 첫 출역일이 1월 30일 또는 1월 31일인 경우');
+    deductibles8.push(merged[7]);
+    deductiblesOver.push(...merged.slice(8));
     return {
       eight: deductibles8.filter(Boolean),
       over: deductiblesOver.filter(Boolean)
     };
   }
 
-// 전월 첫출역일 ~ 전월 말일 출역 7일 초과인 경우 (마지막 케이스)
-  console.log('전월 첫출역일 ~ 전월 말일 출역 7일 초과인 경우');
-  deductibles8.push(sortedDates.currentMonth[7]);
-  deductiblesOver.push(...sortedDates.currentMonth.slice(8));
-
-  return {
-    eight: deductibles8.filter(Boolean),
-    over: deductiblesOver.filter(Boolean)
-  };
-};
-
-const handlePartialPreviousMonth = (oneMonthAgo, currentMonth, workMonth) => {
-  console.log('전월 첫출역일 ~ 전월 말일 출역 7일 이하인 경우');
-
-  const isSpecialCase = oneMonthAgo[0] === '2025-01-30' || oneMonthAgo[0] === '2025-01-31';
-
-  if (isSpecialCase) {
-    console.log('전월 첫 출역일 = 1월 30일 또는 1월 31일인 경우');
-    return handleSpecialDateCase(oneMonthAgo, currentMonth);
-  } else {
-    console.log('전월 첫 출역일 = 1월 30일 또는 1월 31일 아닌 경우');
-    return handleNormalDateCase(oneMonthAgo, currentMonth);
-  }
-};
-
-const handleSpecialDateCase = (oneMonthAgo, currentMonth) => {
-  const merged = [...oneMonthAgo, ...currentMonth].sort();
-
-  if (merged.length === 8) {
-    console.log('전월 첫출역일 ~ 전월 말일 + 2월 1일 ~ 말일 출역 수 8일인 경우');
-    return { eight: [merged[7]], over: merged.slice(8) };
-  } else if (merged.length > 8) {
-    console.log('전월 첫출역일 ~ 전월 말일 + 2월 1일 ~ 말일 출역 수 8일 초과인 경우');
-    return { eight: [merged[7]], over: merged.slice(8) };
-  } else {
-    console.log('전월 첫출역일 ~ 전월 말일 + 2월 1일 ~ 말일 출역 수 8일 미만인 경우');
-    return { eight: [currentMonth[7]], over: currentMonth.slice(8) };
-  }
-};
-
-const handleNormalDateCase = (oneMonthAgo, currentMonth) => {
-  const merged = [...oneMonthAgo, ...currentMonth].sort();
+  //// todo: 왼쪽 노랑색 아래
   const firstDate = new Date(oneMonthAgo[0]);
   const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
 
+  // 전월 첫 출역일 ~ +30일
   const filtered = merged.filter(item => {
     const date = new Date(item);
     return date >= firstDate && date <= lastFromFirstDate;
   });
 
-  if (filtered.length < 8) {
-    console.log('전월 첫 ~ +30일 8일 미만');
-    return { eight: [currentMonth[7]], over: currentMonth.slice(8) };
-  } else {
-    console.log('전월 첫 ~ +30일 8일 이상');
-    const filtered2 = currentMonth.filter(item => {
-      const date = new Date(item);
-      const eighth = new Date(filtered[7]);
-      return date > eighth;
-    });
-
+  if(filtered.length < 8) {
+    console.log('전월 첫 출역일 ~ +30일 < 8 인 경우');
+    deductibles8.push(currentMonth[7]);
+    deductiblesOver.push(...currentMonth.slice(8));
     return {
-      eight: [filtered[7]],
-      over: currentMonth.length >= 8 ? filtered2 : []
-    };
+      eight: deductibles8,
+      over: deductiblesOver
+    }
   }
+
+  if(merged.length > 0) {
+    console.log('전월 + 당월 있는 경우');
+    deductibles8.push(merged[7]);
+    deductiblesOver.push(...merged.slice(8));
+    return {
+      eight: deductibles8,
+      over: deductiblesOver
+    }
+  }
+
+  console.log('비공제');
+  return {
+    eight: deductibles8.filter(Boolean),
+    over: deductiblesOver.filter(Boolean)
+  };
 };
 
 // 국민연금 공제 계산 로직
