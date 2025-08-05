@@ -6,13 +6,24 @@ import dynamic from "next/dynamic";
 const Calendar = dynamic(() => import("@/components/Calendar"), { ssr: false });
 
 // 상수 정의
-const WORK_YEAR = 2025;
 const HEALTH_INSURANCE_THRESHOLD = 8;
 const PENSION_INCOME_THRESHOLD = 2200000;
 const WAGE_OPTIONS = [
   { value: 150000, label: "150000 8일 발생" },
   { value: 370000, label: "370000 6일 발생" },
   { value: 550000, label: "550000 4일 발생" }
+];
+const YEAR_OPTIONS = [
+  { value: 2025, label: '2025년' },
+  { value: 2026, label: '2026년' },
+  { value: 2027, label: '2027년' },
+  { value: 2028, label: '2028년' },
+  { value: 2029, label: '2029년' },
+  { value: 2030, label: '2030년' },
+  { value: 2031, label: '2031년' },
+  { value: 2032, label: '2032년' },
+  { value: 2033, label: '2033년' },
+  { value: 2034, label: '2034년' },
 ];
 const MONTH_OPTIONS = [
   { value: 1, label: "1월" },
@@ -47,30 +58,30 @@ const groupDatesByYearMonth = (dateStrSet) => {
   return groups;
 };
 
-const getMonthKey = (workMonth, monthOffset) => {
+const getMonthKey = (workYear, workMonth, monthOffset) => {
   const targetMonth = parseInt(workMonth) + monthOffset;
 
   if (targetMonth <= 0) {
-    return formatDate(WORK_YEAR - 1, 12 + targetMonth);
+    return formatDate(workYear - 1, 12 + targetMonth);
   } else if (targetMonth > 12) {
-    return formatDate(WORK_YEAR + 1, targetMonth - 12);
+    return formatDate(workYear + 1, targetMonth - 12);
   }
 
-  return formatDate(WORK_YEAR, targetMonth);
+  return formatDate(workYear, targetMonth);
 };
 
-const isFirstDayOfMonth = (dateStr, month) => {
-  return dateStr === `${formatDate(WORK_YEAR, month)}-01`;
+const isFirstDayOfMonth = (dateStr, workYear, month) => {
+  return dateStr === `${formatDate(workYear, month)}-01`;
 };
 
 // 건강보험 공제 계산 로직
-const calculateHealthInsuranceDeduction = (groupedDates, workMonth) => {
+const calculateHealthInsuranceDeduction = (groupedDates, workYear, workMonth) => {
   console.clear();
   console.log('%c건강보험 공제 대상 체크 시작', 'color: #ff0000');
 
-  const twoMonthsAgo = groupedDates[getMonthKey(workMonth, -2)] || [];
-  const oneMonthAgo = groupedDates[getMonthKey(workMonth, -1)] || [];
-  const currentMonth = groupedDates[getMonthKey(workMonth, 0)] || [];
+  const twoMonthsAgo = groupedDates[getMonthKey(workYear, workMonth, -2)] || [];
+  const oneMonthAgo = groupedDates[getMonthKey(workYear, workMonth, -1)] || [];
+  const currentMonth = groupedDates[getMonthKey(workYear, workMonth, 0)] || [];
 
   const sortedDates = {
     twoMonthsAgo: twoMonthsAgo.sort(),
@@ -108,7 +119,7 @@ const calculateHealthInsuranceDeduction = (groupedDates, workMonth) => {
   console.log('전전월 출역이 없는 경우');
 
 // 전월 초일 출역한 경우 - early return
-  if (isFirstDayOfMonth(sortedDates.oneMonthAgo[0], parseInt(workMonth) - 1)) {
+  if (isFirstDayOfMonth(sortedDates.oneMonthAgo[0], workYear, parseInt(workMonth) - 1)) {
     console.log('전월 초일 출역한 경우');
     deductibles8.push(sortedDates.currentMonth[7]);
     deductiblesOver.push(...sortedDates.currentMonth.slice(8));
@@ -177,11 +188,11 @@ const calculateHealthInsuranceDeduction = (groupedDates, workMonth) => {
 };
 
 // 국민연금 공제 계산 로직
-const calculatePensionDeduction = (groupedDates, workMonth, wage) => {
+const calculatePensionDeduction = (groupedDates, workYear, workMonth, wage) => {
   //console.clear();
   console.log('%c국민연금 공제 대상 체크 시작', 'color: #ff0000');
 
-  const currentMonthDates = groupedDates[getMonthKey(workMonth, 0)] || [];
+  const currentMonthDates = groupedDates[getMonthKey(workYear, workMonth, 0)] || [];
   const sortedDates = currentMonthDates.sort();
 
   if (sortedDates.length === 0) {
@@ -244,7 +255,8 @@ const handleLessThanEightDays = (dates, targetIndex) => {
 };
 
 const Page = () => {
-  const [workMonth, setWorkMonth] = useState(6);
+  const [workYear, setWorkYear] = useState(new Date().getFullYear());
+  const [workMonth, setWorkMonth] = useState(new Date().getMonth() + 1);
   const [totalSelectedDates, setTotalSelectedDates] = useState(new Set());
   const [deductibles, setDeductibles] = useState({ eight: [], over: [] });
   const [stateDeductibles, setStateDeductibles] = useState({ eight: [], over: [] });
@@ -259,23 +271,23 @@ const Page = () => {
   }, []);
 
   const checkDeductibleDates = useCallback((dates) => {
-    return calculateHealthInsuranceDeduction(dates, workMonth);
-  }, [workMonth]);
+    return calculateHealthInsuranceDeduction(dates, workYear, workMonth);
+  }, [workYear, workMonth]);
 
   const checkStateDeductibleDates = useCallback((dates) => {
-    return calculatePensionDeduction(dates, workMonth, wage);
-  }, [wage, workMonth]);
+    return calculatePensionDeduction(dates, workYear, workMonth, wage);
+  }, [wage, workYear, workMonth]);
 
   const getCalendarProps = useCallback((monthOffset, isShaded = false) => {
     const targetMonth = parseInt(workMonth) + monthOffset;
-    let year = WORK_YEAR;
+    let year = workYear;
     let month = targetMonth;
 
     if (targetMonth <= 0) {
-      year = WORK_YEAR - 1;
+      year = workYear - 1;
       month = 12 + targetMonth;
     } else if (targetMonth > 12) {
-      year = WORK_YEAR + 1;
+      year = workYear + 1;
       month = targetMonth - 12;
     }
 
@@ -287,7 +299,7 @@ const Page = () => {
       currentMonth: parseInt(workMonth),
       shade: isShaded
     };
-  }, [workMonth, totalSelectedDates, setTotalDates]);
+  }, [workYear, workMonth, totalSelectedDates, setTotalDates]);
 
   useEffect(() => {
     const groupedDates = groupDatesByYearMonth(totalSelectedDates);
@@ -297,7 +309,7 @@ const Page = () => {
 
     const stateDeductibleDates = checkStateDeductibleDates(groupedDates);
     setStateDeductibles(stateDeductibleDates);
-  }, [wage, workMonth, checkDeductibleDates, totalSelectedDates, checkStateDeductibleDates]);
+  }, [wage, workYear, workMonth, checkDeductibleDates, totalSelectedDates, checkStateDeductibleDates]);
 
   const renderCalendarRow = (title, deductibleData) => (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
@@ -318,6 +330,17 @@ const Page = () => {
         <button style={{ width: '80px', height: '30px' }} onClick={reset}>
           reset
         </button>
+
+        <select
+          style={{ width: '80px', height: '30px' }}
+          value={workYear}
+          onChange={(e) => setWorkYear(parseInt(e.target.value))}
+        >
+          {YEAR_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+
 
         <select
           style={{ width: '80px', height: '30px' }}
