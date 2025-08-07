@@ -371,7 +371,7 @@ const refundHandleNoOneMonthAgoWork = (sortedDates, currentMonth, oneMonthAfter,
 
     if(intersect.length > 0) {
       console.log('3개월 전 1일 ~ 3개월 전 말일 출역 < 8, 3개월 전 지급단 공제 금액 환급');
-      refunds.push(...intersect);
+      refunds.push(...currentMonth);
       return refunds;
     }
 
@@ -403,7 +403,7 @@ const refundHandleNoOneMonthAgoWork = (sortedDates, currentMonth, oneMonthAfter,
 
   if(intersect.length > 0) {
     console.log('2개월 전 출역 없는 경우, 3개월 전 지급단 공제 금액 환급');
-    refunds.push(...intersect);
+    refunds.push(...currentMonth);
     return refunds;
   }
 
@@ -428,7 +428,7 @@ const refundHandleWithTwoMonthsAgoWork = (currentMonth, merged, lastFromFirstDat
 
   if (intersect.length > 0) {
     console.log('3개월 전 출역 8일 미만인 경우, 3개월 전 지급단 공제 금액 환급');
-    refunds.push(...intersect);
+    refunds.push(...currentMonth);
     return refunds;
   }
 
@@ -453,7 +453,7 @@ const refundHandleFirstDayWork = (currentMonth, merged, lastFromFirstDate, healt
 
   if (intersect.length > 0) {
     console.log('3개월 전 출역 8일 미만인 경우, 3개월 전 지급단 공제 금액 환급');
-    refunds.push(...intersect);
+    refunds.push(...currentMonth);
     return refunds;
   }
 
@@ -541,7 +541,7 @@ const refundHandleLessThanEightDays = (merged, lastFromFirstDate, currentMonth, 
 
       if (intersect.length > 0) {
         console.log('4개월 전 첫 출역 + 31일 ~ 3개월 전 말일 공제값 Y > 0, 3개월 전 지급단 공제 금액 환급');
-        refunds.push(...intersect);
+        refunds.push(...currentMonth);
         return refunds;
       }
 
@@ -568,7 +568,7 @@ const refundHandleLessThanEightDays = (merged, lastFromFirstDate, currentMonth, 
 
   if (intersect.length > 0) {
     console.log('3개월 전 1일 ~ 3개월 전 말일 출역 < 8, 3개월 전 지급단 공제 금액 환급');
-    refunds.push(...intersect);
+    refunds.push(...currentMonth);
     return refunds;
   }
 
@@ -687,7 +687,7 @@ const refundHandleCurrentMonthLessThanEight = (currentMonth, oneMonthAfter, sort
   const intersect = currentMonth.filter(date => healthDeductibles.includes(date));
   if(intersect.length > 0) {
     console.log('3개월전 첫 출역일 ~ +30일에서 8일 미만 출역, 3개월 전 지급단 공제 금액 환급');
-    refunds.push(...intersect);
+    refunds.push(...currentMonth);
     return refunds;
   }
 
