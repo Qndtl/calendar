@@ -67,5 +67,16 @@
 }
 
 .calendar-shade {
-    background-color: grey;
+    background-color: #ddd;
+}
+
+.refund-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background-color: orange;
+    border-radius: 50%;
+    z-index: 1;
 }
