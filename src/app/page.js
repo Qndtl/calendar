@@ -590,7 +590,7 @@ const refundHandleCurrentMonthSpecialDate = (currentMonth, oneMonthAfter, sorted
   }
 
   console.log('1/30 ~ 2월말 까지 8일 이상 출역');
-  const lastDayWorked = isLastDayOfMonth(sortedDates.currentMonth[currentMonth.length - 1], workYear, targetMonth);
+  const lastDayWorked = isLastDayOfMonth(sortedDates.oneMonthAfter[currentMonth.length - 1], workYear, parseInt(targetMonth) + 1);
 
   if (lastDayWorked) {
     console.log('2월 말일 출역');
