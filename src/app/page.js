@@ -830,7 +830,7 @@ const Page = () => {
 
   }, [wage, workYear, workMonth, checkDeductibleDates, totalSelectedDates, checkStateDeductibleDates, checkRefundDates, checkStateRefundDates]);
 
-  const renderCalendarRow = (title, deductibleData, refundData, secondRefundData) => (
+  const renderCalendarRow = (title, deductibleData, secondDeductibles, refundData, secondRefundData) => (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
       <h2>{title}</h2>
       {[-2, -1, 0, 1, 2].map(offset => (
@@ -887,8 +887,8 @@ const Page = () => {
         </select>
       </div>
 
-      {renderCalendarRow("건강", deductibles, refunds, secondRefunds)}
-      {renderCalendarRow("국민", stateDeductibles, stateRefunds)}
+      {renderCalendarRow("건강", deductibles, secondDeductibles, refunds, secondRefunds)}
+      {renderCalendarRow("국민", stateDeductibles, {eight: [], over: []}, [])}
     </div>
   );
 }
