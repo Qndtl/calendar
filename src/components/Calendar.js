@@ -10,6 +10,7 @@ const Calendar = ({
                     secondDeductibles,
                     refundData = [],
                     secondRefundData = [],
+                    stateDeductData = [],
                     title,
                     year,
                     month,
@@ -290,6 +291,7 @@ const Calendar = ({
           const isSelected = isDateSelected(key);
           const isRefund = refundData.includes(key);
           const isSecondRefund = secondRefundData.includes(key);
+          const isStateDeduct = stateDeductData.includes(key);
           const cellStyle = getCellStyle(date);
 
           // companyId 2인 경우는 selected 클래스를 적용하지 않음 (붉은색 배경 우선)
@@ -313,6 +315,9 @@ const Calendar = ({
               {date || ''}
               {(isRefund || isSecondRefund) && (
                 <div className="refund-indicator"></div>
+              )}
+              {isStateDeduct && (
+                <div className="deduct-indicator"></div>
               )}
             </div>
           );

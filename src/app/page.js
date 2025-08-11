@@ -75,15 +75,15 @@ const groupDatesByYearMonth = (dateArray) => {
   return {grouped, second};
 };
 
-const stateGroupDatesByYearMonth = (dateArray) => {
+const stateGroupDatesByYearMonth = (dateArray, wage) => {
   const grouped = {};
-  dateArray.forEach(({ workDate }) => {
+  dateArray.forEach(({ workDate, companyId }) => {
     const [year, month] = workDate.split('-');
     const key = `${year}-${month}`;
     if (!grouped[key]) {
       grouped[key] = [];
     }
-    grouped[key].push(workDate);
+    grouped[key].push({workDate, companyId, wage});
   });
   return grouped;
 };
@@ -98,6 +98,59 @@ const getMonthKey = (workYear, workMonth, monthOffset) => {
   }
 
   return formatDate(workYear, targetMonth);
+};
+
+const groupByCompanyId = (array, wage, isCurrent = false) => {
+  // 원본 배열을 변경하지 않고 새 배열 생성
+  const itemsWithWage = array.map(item => ({ ...item, wage }));
+
+  // companyId별로 그룹화
+  const groupedByCompany = itemsWithWage.reduce((acc, item) => {
+    const { companyId } = item;
+    if (!acc[companyId]) {
+      acc[companyId] = [];
+    }
+    acc[companyId].push(item);
+    return acc;
+  }, {});
+
+  const result = Object.entries(groupedByCompany)
+    .map(([companyId, histories]) => {
+      const sortedHistories = histories.sort((a, b) => a.workDate.localeCompare(b.workDate));
+
+      let cumulativeWage = 0;
+      let overWageDate = null;
+
+      // 날짜순으로 누적 임금 계산하여 임계값을 넘는 날짜 찾기
+      for (const item of sortedHistories) {
+        cumulativeWage += item.wage;
+        if (cumulativeWage >= PENSION_INCOME_THRESHOLD && !overWageDate) {
+          overWageDate = item.workDate;
+          break;
+        }
+      }
+
+      const wageSum = histories.reduce((sum, item) => sum + item.wage, 0);
+      const workCount = histories.length;
+      const isOverEight = workCount >= 8;
+      const isOverWage = wageSum >= PENSION_INCOME_THRESHOLD;
+
+      return {
+        companyId: parseInt(companyId),
+        isOverEight,
+        isOverWage,
+        overWageDate, // 임계값을 넘은 날짜
+        wageSum,
+        workCount,
+        histories: sortedHistories
+      };
+    });
+
+  // if(isCurrent) {
+  //   return result.filter(company => company.isOverWage || company.isOverEight);
+  // };
+
+  return result;
 };
 
 // 초일 출역 여부
@@ -224,22 +277,24 @@ const calculateHealthInsuranceDeduction = (groupedDates, workYear, workMonth, co
 const calculatePensionDeduction = (groupedDates, workYear, workMonth, wage) => {
   //console.clear();
   console.log('%c국민연금 공제 대상 체크 시작', 'color: #ff0000');
+  const sortByWorkDate = (a, b) => a.workDate.localeCompare(b.workDate);
 
   const currentMonthDates = groupedDates[getMonthKey(workYear, workMonth, 0)] || [];
-  const sortedDates = currentMonthDates.sort();
+  const sortedDates = currentMonthDates.sort(sortByWorkDate);
 
   if (sortedDates.length === 0) {
     return { eight: [], over: [] };
   }
 
-  const { targetIndex } = findThresholdDate(sortedDates, wage);
+  // const { targetIndex } = findThresholdDate(sortedDates, wage);
+  const targetIndex = null;
 
   if (sortedDates.length >= 8) {
     console.log('당월 8일 이상 출역');
-    return handleEightOrMoreDays(sortedDates, targetIndex);
+    return handleEightOrMoreDays(sortedDates.map(item => item.workDate), targetIndex);
   } else {
     console.log('당월 8일 미만 출역');
-    return handleLessThanEightDays(sortedDates, targetIndex);
+    return handleLessThanEightDays(sortedDates.map(item => item.workDate), targetIndex);
   }
 };
 
@@ -323,22 +378,182 @@ const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMonth, ded
 // wage: 하루 노임
 // deductibles: 건강보험 공제 내역
 const calculateStatePensionRefund = (groupedDates, workYear, targetMonth, wage, deductibles) => {
+  const sortByWorkDate = (a, b) => a.workDate.localeCompare(b.workDate);
+
   const oneMonthAgo = groupedDates[getMonthKey(workYear, targetMonth, -1)] || []; // 4개월 전
   const currentMonth = groupedDates[getMonthKey(workYear, targetMonth, 0)] || []; // 3개월 전(환급 대상 월)
   const oneMonthAfter = groupedDates[getMonthKey(workYear, targetMonth, 1)] || []; // 2개월 전
 
   const sortedDates = {
-    oneMonthAgo: oneMonthAgo.sort(),
-    currentMonth: currentMonth.sort(),
-    oneMonthAfter: oneMonthAfter.sort(),
+    oneMonthAgo: oneMonthAgo.sort(sortByWorkDate),
+    currentMonth: currentMonth.sort(sortByWorkDate),
+    oneMonthAfter: oneMonthAfter.sort(sortByWorkDate),
   };
 
-  let refunds = [];
+  const groupedSortedDates = {
+    oneMonthAgo: groupByCompanyId(sortedDates.oneMonthAgo, wage),
+    currentMonth: groupByCompanyId(sortedDates.currentMonth, wage, true),
+    oneMonthAfter: groupByCompanyId(sortedDates.oneMonthAfter, wage),
+  };
 
+  const refunds = [];
+  const deducts = [];
   console.log('%c국민연금 환급 대상 체크 시작', 'color: yellow');
-  // todo: 국민연금 환급 로직
+  // 모든 국민연금 공제 내역
+  const allDeducts = [...sortedDates.currentMonth.filter(item => item.workDate <= deductibles.eight), ...sortedDates.currentMonth.filter(item => deductibles.over.includes(item.workDate))];
+  // 그룹 현장 또는 청구 업체 기준 구분하여 환급 로직 처리
+  if(groupedSortedDates.currentMonth.length > 0) {
+    console.log(`%c현장 그룹`, 'color: orange', '단위 환급 로직');
+    for (const group of groupedSortedDates.currentMonth) {
+      console.log(`%ccompanyId: ${group.companyId} 환급/징수 계산`, 'color: pink')
+      // 그룹 현장의 4개월 전 출역 이력
+      const filteredOneMonthAgo = groupedSortedDates.oneMonthAgo.filter(item => item.companyId === group.companyId)[0] ?? [];
+      // 그룹 현장의 3개월 전 출역 이력
+      const filteredCurrentMonth = groupedSortedDates.currentMonth.filter(item => item.companyId === group.companyId)[0] ?? [];
+      // 그룹 현장의 2개월 전 출역 이력
+      const filteredOneMonthAfter = groupedSortedDates.oneMonthAfter.filter(item => item.companyId === group.companyId)[0] ?? [];
+      // 현장 그룹의 공제 내역
+      const filteredDeducts = allDeducts.filter(item => item.companyId === group.companyId) ?? [];
+      const refundAndDeducts = handleStatePensionRefundAndDeduct(filteredOneMonthAgo, filteredCurrentMonth, filteredOneMonthAfter, filteredDeducts, sortedDates.oneMonthAfter)
+      refunds.push(...refundAndDeducts.refunds?.map(item => item.workDate));
+      deducts.push(...refundAndDeducts.deducts?.map(item => item.workDate));
+    }
 
-  return refunds;
+    return {
+      refunds: refunds,
+      deducts: deducts
+    }
+  }
+
+  console.log(`%c청구 업체`, 'color: orange', '단위 환급 로직');
+  const refundAndDeducts = handleStatePensionRefundAndDeduct(sortedDates.oneMonthAgo, sortedDates.currentMonth, sortedDates.oneMonthAfter, allDeducts, sortedDates.oneMonthAfter);
+
+  return {
+    refunds: refundAndDeducts.refunds.map(item => item.workDate),
+    deducts: refundAndDeducts.deducts.map(item => item.workDate),
+  }
+}
+
+// 실제 환급 로직
+const handleStatePensionRefundAndDeduct = (oneMonthAgo, currentMonth, oneMonthAfter, deductibles, totalOneMonthAfter) => {
+  const deductibleDates = deductibles.map(item => item.workDate);
+  const oneMonthAgoHistories = oneMonthAgo.histories ?? [];
+  const currentMonthHistories = currentMonth.histories ?? [];
+  const oneMonthAfterHistories = oneMonthAfter.histories ?? [];
+  const oneMonthAfterTotalHistories = totalOneMonthAfter.histories ?? [];
+  // console.log('4개월 전 출역 이력', oneMonthAgoHistories);
+  // console.log('3개월 전 출역 이력', currentMonthHistories);
+  // console.log('2개월 전 출역 이력', oneMonthAfterHistories);
+  // console.log('국민연금 공제 내역', deductibles)
+
+  const refunds = [];
+  const deducts = [];
+
+  if(oneMonthAgoHistories.length > 0) {
+    console.log('4개월 전 출역 이력이 있는 경우');
+    if(currentMonthHistories.length >= 8) {
+      console.log('3개월 전 8일 이상 출역한 경우');
+      console.log('환급 비대상');
+      return { refunds, deducts }
+    }
+
+    console.log('3개월 전 8일 미만 출역한 경우');
+    if(currentMonth.isOverWage) {
+      console.log('3개월 전 출역 이력 220만원 이상인 경우')
+      deducts.push(...currentMonthHistories.filter(date => !deductibleDates.includes(date.workDate)));
+      return { refunds, deducts }
+    }
+
+    console.log('3개월 전 출역 이력 220만원 미만인 경우');
+    refunds.push(...deductibles);
+    console.log('공제 내역 환급');
+    return { refunds, deducts }
+  }
+
+  console.log('4개월 전 출역 이력이 없는 경우');
+  // 3개월 전 첫 출역일
+  const firstDayOfCurrentMonth = currentMonthHistories[0]?.workDate;
+  if(currentMonthHistories.length >= 8) {
+    console.log('3개월 전 출역 8일 이상인 경우')
+    if(firstDayOfCurrentMonth.endsWith('-01')) {
+      console.log('3개월 전 초일 출역한 경우')
+      if(oneMonthAfterHistories.length > 0) {
+        console.log('2개월 전 출역한 경우')
+        console.log('환급 비대상')
+        return { refunds, deducts }
+      }
+      console.log('2개월 전 출역 안한 경우')
+      if(oneMonthAfterTotalHistories.length > 0) {
+        console.log('2개월 전 청구 업체 기준 출역한 경우')
+        console.log('환급 비대상')
+        return { refunds, deducts }
+      }
+      console.log('2개월 전 청구 업체 기준 출역 안한 경우')
+      console.log('환급 대상')
+      refunds.push(...deductibles)
+      return { refunds, deducts }
+    }
+    console.log('3개월 전 초일 출역 안한 경우')
+    if(oneMonthAfterHistories.length >= 8) {
+      console.log('2개월 전 8일 이상 출역한 경우');
+      console.log('환급 비대상')
+      return { refunds, deducts }
+    }
+    console.log('2개월 전 8일 이상 출역 안한 경우');
+    if(oneMonthAfter.isOverWage) {
+      console.log('2개월 전 220만원 이상인 경우');
+      deducts.push(...currentMonthHistories.filter(date => !deductibleDates.includes(date.workDate)));
+      console.log(`%c공제 내역 징수`, 'color: red', deducts)
+    }
+    console.log('2개월 전 220만원 미만인 경우');
+    refunds.push(...deductibles);
+    console.log('공제 내역 환급');
+    return { refunds, deducts }
+  }
+
+  console.log('3개월 전 출역 8일 미만인 경우')
+  if(currentMonth.isOverWage) {
+    console.log('3개월 전 220만원 이상인 경우')
+    if(firstDayOfCurrentMonth.endsWith('-01')) {
+      console.log('3개월 전 초일 출역한 경우')
+      if(oneMonthAfterHistories.length > 0) {
+        console.log('2개월 전 출역한 경우')
+        console.log('환급 비대상')
+        return { refunds, deducts }
+      }
+      console.log('2개월 전 출역 안한 경우')
+      if(oneMonthAfterTotalHistories.length > 0) {
+        console.log('2개월 전 청구 업체 기준 출역한 경우')
+        console.log('환급 비대상')
+        return { refunds, deducts }
+      }
+      console.log('2개월 전 청구 업체 기준 출역 안한 경우')
+      console.log('환급 대상')
+      refunds.push(...deductibles)
+      return { refunds, deducts }
+    }
+    console.log('3개월 전 초일 출역 안한 경우')
+    if(oneMonthAfterHistories.length >= 8) {
+      console.log('2개월 전 8일 이상 출역한 경우');
+      console.log('환급 비대상')
+      return { refunds, deducts }
+    }
+    console.log('2개월 전 8일 이상 출역 안한 경우');
+    if(oneMonthAfter.isOverWage) {
+      console.log('2개월 전 220만원 이상인 경우');
+      deducts.push(...deductibles)
+      console.log(`%c공제 내역 징수`, 'color: red', deducts)
+    }
+    console.log('2개월 전 220만원 미만인 경우');
+    refunds.push(...deductibles);
+    console.log('공제 내역 환급');
+    return { refunds, deducts }
+  }
+
+  console.log('3개월 전 220만원 미만인 경우 환급')
+  refunds.push(...deductibles);
+  console.log('공제 내역 환급');
+  return { refunds, deducts }
 }
 
 // [환급]4개월 전 출역이 없는 경우 처리
@@ -750,6 +965,7 @@ const Page = () => {
   const [refunds, setRefunds] = useState([]);
   const [secondRefunds, setSecondRefunds] = useState([]);
   const [stateRefunds, setStateRefunds] = useState([]);
+  const [stateDeducts, setStateDeducts] = useState([]);
   const [wage, setWage] = useState(150000);
 
   const setTotalDates = useCallback((dates) => {
@@ -772,8 +988,8 @@ const Page = () => {
     return calculateHealthInsuranceRefund(dates, workYear, workMonth, healthDeductibles, companyId);
   }, [workYear, workMonth]);
 
-  const checkStateRefundDates = useCallback((dates) => {
-    return calculateStatePensionRefund(dates, workYear, workMonth, wage)
+  const checkStateRefundDates = useCallback((dates, currentStateDeductibles) => {
+    return calculateStatePensionRefund(dates, workYear, workMonth, wage, currentStateDeductibles)
   }, [wage, workYear, workMonth]);
 
   const getCalendarProps = useCallback((monthOffset) => {
@@ -802,7 +1018,7 @@ const Page = () => {
     console.clear();
     console.log(totalSelectedDates)
     const healthGroupedDates = groupDatesByYearMonth(totalSelectedDates);
-    const stateGroupedDates = stateGroupDatesByYearMonth(totalSelectedDates);
+    const stateGroupedDates = stateGroupDatesByYearMonth(totalSelectedDates, wage);
 
     // 건강보험 공제 건설사1
     const deductibleDates = checkDeductibleDates(healthGroupedDates.grouped, 1);
@@ -824,13 +1040,14 @@ const Page = () => {
     const secondRefundDates = checkRefundDates(healthGroupedDates.second, secondDeductibleDates, 2);
     setSecondRefunds(secondRefundDates);
 
-    // 국민연금 환급
-    const stateRefundDates = checkStateRefundDates(stateGroupedDates);
-    setStateRefunds(stateRefundDates);
+    // 국민연금 환급 및 징수
+    const stateRefundAndDeducts = checkStateRefundDates(stateGroupedDates, stateDeductibleDates);
+    setStateRefunds(stateRefundAndDeducts.refunds);
+    setStateDeducts(stateRefundAndDeducts.deducts);
 
   }, [wage, workYear, workMonth, checkDeductibleDates, totalSelectedDates, checkStateDeductibleDates, checkRefundDates, checkStateRefundDates]);
 
-  const renderCalendarRow = (title, deductibleData, secondDeductibles, refundData, secondRefundData) => (
+  const renderCalendarRow = (title, deductibleData, secondDeductibles, refundData, secondRefundData, stateDeductData) => (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
       <h2>{title}</h2>
       {[-2, -1, 0, 1, 2].map(offset => (
@@ -842,6 +1059,7 @@ const Page = () => {
           secondDeductibles={secondDeductibles}
           refundData={refundData}
           secondRefundData={secondRefundData}
+          stateDeductData={stateDeductData}
           {...getCalendarProps(offset)}
         />
       ))}
@@ -888,7 +1106,7 @@ const Page = () => {
       </div>
 
       {renderCalendarRow("건강", deductibles, secondDeductibles, refunds, secondRefunds)}
-      {renderCalendarRow("국민", stateDeductibles, {eight: [], over: []}, [])}
+      {renderCalendarRow("국민", stateDeductibles, {eight: [], over: []}, stateRefunds, [], stateDeducts)}
     </div>
   );
 }
