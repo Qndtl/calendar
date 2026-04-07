@@ -126,7 +126,7 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     }
     console.log('[신규] STEP 9: 청구업체 합산 노임 < 220 → 공제 비대상 → 환급');
     if (billingHasDeduction) {
-      refunds.push(...allDeductDates);
+      refunds.push(...billingCurrentDates);
     }
   };
 
@@ -135,7 +135,7 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     if (!billingWorkedOnFirst) {
       console.log('[신규] STEP 6: 청구업체 3개월 전 초일 미출역 → 공제 비대상 → 환급');
       if (billingHasDeduction) {
-        refunds.push(...allDeductDates);
+        refunds.push(...billingCurrentDates);
       }
       return;
     }
@@ -144,7 +144,7 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     if (!billingWorkedOnLast) {
       console.log('[신규] STEP 7: 청구업체 3개월 전 말일 미출역 → 공제 비대상 → 환급');
       if (billingHasDeduction) {
-        refunds.push(...allDeductDates);
+        refunds.push(...billingCurrentDates);
       }
       return;
     }
@@ -178,7 +178,7 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
       } else {
         console.log(`[신규] 이전 flow: 3개월 전 출역/노임 미충족 → 환급`);
         if (billingHasDeduction) {
-          refunds.push(...allDeductDates);
+          refunds.push(...billingCurrentDates);
         }
       }
       continue;
@@ -227,7 +227,7 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     // STEP 10: 청구업체 3개월 전 공제 값 = 1 (공제 이력 존재) 여부
     if (billingHasDeduction) {
       console.log(`[신규] STEP 10: 청구업체 공제 값 = 1 → 공제 비대상 → 환급`);
-      refunds.push(...allDeductDates);
+      refunds.push(...billingCurrentDates);
     } else {
       console.log(`[신규] STEP 10: 청구업체 공제 값 = 0 → STEP 8`);
       handleStep8();
