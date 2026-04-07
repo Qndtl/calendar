@@ -68,7 +68,8 @@ export const calculateHealthInsuranceDeduction = (groupedDates, workYear, workMo
   }
 
   const firstDate = new Date(oneMonthAgo[0]);
-  const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const daysInFirstMonth = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 0).getDate();
+  const lastFromFirstDate = new Date(firstDate.getTime() + (daysInFirstMonth - 1) * 24 * 60 * 60 * 1000);
 
   const filtered = merged.filter(item => {
     const date = new Date(item);
@@ -124,7 +125,8 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
 
   const merged = [...oneMonthAgo, ...currentMonth].sort();
   const firstDate = new Date(sortedDates.oneMonthAgo[0]);
-  const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const daysInFirstMonth = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 0).getDate();
+  const lastFromFirstDate = new Date(firstDate.getTime() + (daysInFirstMonth - 1) * 24 * 60 * 60 * 1000);
 
   console.log(`%c건강보험 건설사${companyId} 환급 대상 체크 시작`, 'color: yellow');
 
@@ -328,7 +330,7 @@ const refundHandleLessThanEightDays = (merged, lastFromFirstDate, currentMonth, 
 
   if (filtered.length >= 8) {
     console.log('4개월 전 ~ +30일 출역 8일 이상인 경우');
-    if (merged.includes(lastFromFirstDate)) {
+    if (merged.includes(formatFromDate(lastFromFirstDate))) {
       console.log('4개월 전 출역일 +30일 출역한 경우');
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
       return refunds;
@@ -419,7 +421,8 @@ const refundHandleCurrentMonthRegularDate = (currentMonth, oneMonthAfter, sorted
 
   console.log('3개월 전 8일 이상 출역한 경우');
   const firstDate = new Date(sortedDates.currentMonth[0]);
-  const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const daysInFirstMonth = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 0).getDate();
+  const lastFromFirstDate = new Date(firstDate.getTime() + (daysInFirstMonth - 1) * 24 * 60 * 60 * 1000);
   const formattedLastFromFirstDate = formatFromDate(lastFromFirstDate);
 
   if (oneMonthAfter.includes(formattedLastFromFirstDate)) {
@@ -454,7 +457,8 @@ const refundHandleThirtyDaysAfterCheck = (currentMonth, oneMonthAfter, lastFromF
 const refundHandleCurrentMonthLessThanEight = (currentMonth, oneMonthAfter, sortedDates, groupedDates, refunds, healthDeductibles) => {
   const merged = [...currentMonth, ...oneMonthAfter].sort();
   const firstDate = new Date(sortedDates.currentMonth[0]);
-  const lastFromFirstDate = new Date(firstDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+  const daysInFirstMonth = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 0).getDate();
+  const lastFromFirstDate = new Date(firstDate.getTime() + (daysInFirstMonth - 1) * 24 * 60 * 60 * 1000);
 
   const filtered = merged.filter(item => {
     const date = new Date(item);
