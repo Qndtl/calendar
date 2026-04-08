@@ -76,6 +76,8 @@ export const calculatePensionDeduction = (groupedDates, workYear, workMonth, wag
 // 신규 국민연금 환급 로직
 export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth, wage, deductibles) => {
   console.log('%c[신규] 국민연금 환급 대상 체크 시작', 'color: #00aaff');
+  console.log('[신규] wage:', wage, '/ targetMonth:', targetMonth, '/ workYear:', workYear);
+  console.log('[신규] deductibles:', deductibles);
 
   const PENSION_THRESHOLD = 2200000;
 
@@ -105,9 +107,33 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
   const refunds = [];
   const deducts = [];
 
-  // STEP 11: 금액 비교 → 환급 or 징수 (별도 금액 계산 계층에서 처리)
+  // STEP 11: 공제 금액 비교 → 환급 or 징수
+  // - 8일 기준 충족: 8번째 이후 날짜만 공제 대상
+  // - 노임 기준 충족 (8일 미만): 전체 출역일이 공제 대상
+  // allDeductDates = 실제 공제된 날짜
+  // 실제 > 공제됐어야 할 → 초과분 환급
+  // 실제 < 공제됐어야 할 → 부족분 징수
   const handleStep11 = () => {
-    console.log('%c[신규] STEP 11: 금액 비교 후 징수 or 환급', 'color: #FFA500');
+    console.log('%c[신규] STEP 11: 공제 금액 비교 → 환급 or 징수', 'color: #FFA500');
+    const expectedDeductDates = billingCurrentCount >= 8
+      ? billingCurrentDates.slice(7)   // 8일 기준: 8번째 이후
+      : billingCurrentDates;           // 노임 기준: 전체 날짜
+
+    const overDeducted = allDeductDates.filter(d => !expectedDeductDates.includes(d));
+    if (overDeducted.length > 0) {
+      console.log(`[신규] STEP 11: 초과 공제 ${overDeducted.length}건 → 환급`);
+      refunds.push(...overDeducted);
+    }
+
+    const underDeducted = expectedDeductDates.filter(d => !allDeductDates.includes(d));
+    if (underDeducted.length > 0) {
+      console.log(`[신규] STEP 11: 미공제 ${underDeducted.length}건 → 징수`);
+      deducts.push(...underDeducted);
+    }
+
+    if (overDeducted.length === 0 && underDeducted.length === 0) {
+      console.log('[신규] STEP 11: 공제 금액 일치 → 처리 없음');
+    }
   };
 
   // STEP 8-9: 청구업체 합산 출역/노임 확인
@@ -172,9 +198,8 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
         console.log(`[신규] 이전 flow: 3개월 전 8일 이상 → STEP 11`);
         handleStep11();
       } else if (siteCurrentWage >= PENSION_THRESHOLD) {
-        console.log(`[신규] 이전 flow: 3개월 전 노임 220 이상 → 징수`);
-        const undeductedDates = siteCurrentWorkDates.filter(d => !allDeductDates.includes(d));
-        deducts.push(...undeductedDates);
+        console.log(`[신규] 이전 flow: 3개월 전 노임 220 이상 → STEP 11`);
+        handleStep11();
       } else {
         console.log(`[신규] 이전 flow: 3개월 전 출역/노임 미충족 → 환급`);
         if (billingHasDeduction) {
