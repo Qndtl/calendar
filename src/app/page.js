@@ -174,27 +174,31 @@ const Page = () => {
   }, [wage, workYear, workMonth, checkDeductibleDates, totalSelectedDates, checkStateDeductibleDates, checkRefundDates, checkStateRefundDates]);
 
   const renderCalendarRow = (title, deductibleData, secondDeductibles, refundData, secondRefundData, stateDeductData) => (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-      <h2>{title}</h2>
-      {[-2, -1, 0, 1, 2].map(offset => (
-        <Calendar
-          key={offset}
-          title={title}
-          shade={title === '국민' && (offset === -2 || offset === 2)}
-          deductibles={deductibleData}
-          secondDeductibles={secondDeductibles}
-          refundData={refundData}
-          secondRefundData={secondRefundData}
-          stateDeductData={stateDeductData}
-          {...getCalendarProps(offset)}
-        />
-      ))}
+    <div style={{ width: '100%', maxWidth: '100%' }}>
+      <h2 style={{ textAlign: 'center', margin: '8px 0 4px' }}>{title}</h2>
+      <div style={{ overflowX: 'auto', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', paddingBottom: '4px' }}>
+        <div style={{ display: 'flex', margin: '0 auto' }}>
+          {[-2, -1, 0, 1, 2].map(offset => (
+            <Calendar
+              key={offset}
+              title={title}
+              shade={title === '국민' && (offset === -2 || offset === 2)}
+              deductibles={deductibleData}
+              secondDeductibles={secondDeductibles}
+              refundData={refundData}
+              secondRefundData={secondRefundData}
+              stateDeductData={stateDeductData}
+              {...getCalendarProps(offset)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 0', width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 'bold' }}>로직 선택:</span>
         <label style={{ cursor: 'pointer' }}>
           <input
@@ -217,7 +221,7 @@ const Page = () => {
           {' '}신규
         </label>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
         <button style={{ width: '80px', height: '30px' }} onClick={reset}>
           reset
         </button>
