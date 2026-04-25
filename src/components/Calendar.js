@@ -10,6 +10,8 @@ const Calendar = ({
                     secondDeductibles,
                     refundData = [],
                     secondRefundData = [],
+                    healthDeductData = [],
+                    secondHealthDeductData = [],
                     stateDeductData = [],
                     title,
                     year,
@@ -291,6 +293,7 @@ const Calendar = ({
           const isSelected = isDateSelected(key);
           const isRefund = refundData.includes(key);
           const isSecondRefund = secondRefundData.includes(key);
+          const isHealthDeduct = healthDeductData.includes(key) || secondHealthDeductData.includes(key);
           const isStateDeduct = stateDeductData.includes(key);
           const cellStyle = getCellStyle(date);
 
@@ -316,7 +319,7 @@ const Calendar = ({
               {(isRefund || isSecondRefund) && (
                 <div className="refund-indicator"></div>
               )}
-              {isStateDeduct && (
+              {(isHealthDeduct || isStateDeduct) && (
                 <div className="deduct-indicator"></div>
               )}
             </div>
