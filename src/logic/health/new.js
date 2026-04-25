@@ -406,9 +406,10 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
   // ─── Step 5b: 4개월전 기간 < 8 ───
   console.log(`[신규v2] Step 5b: 4개월전 기간 ${period4Count}일 < 8`);
 
-  // 5개월전 있음 → 이전 크로스월이 이미 성립 → 공제 정당
-  if (sorted5.length > 0) {
-    console.log('[신규v2] Step 5b: 5개월전 출역 있음 → 공제 정당');
+  // 5개월전 있음 + 4개월전 있음 → 이전 크로스월이 성립 → 공제 정당
+  // sorted4 없으면 4개월전 단절로 공제 정당 근거 없음 → Step 5c로
+  if (sorted5.length > 0 && sorted4.length > 0) {
+    console.log('[신규v2] Step 5b: 5개월전 + 4개월전 출역 있음 → 공제 정당');
     if (sorted3.length >= 8) {
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
       if (healthDeductibles.length === 0) deducts.push(...sorted3);
