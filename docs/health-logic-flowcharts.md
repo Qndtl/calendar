@@ -94,7 +94,7 @@ flowchart TD
     B1 -->|Y| REF
     B1 -->|N| NORE
     B -->|N| C{"4개월전 기간 8일 이상?"}
-    C -->|Y| C1{"기간 종료일 이후 출역?"}
+    C -->|Y| C1{"공제 정당 조건 충족?\n①기간이후출역 ②기간경계완성\n③sorted4≥8 ④특수일완성"}
     C1 -->|Y| C2{"sorted5 있음\n+ sorted3 < 8?"}
     C1 -->|N| REF
     C2 -->|Y| PASS1[비대상]
@@ -108,18 +108,20 @@ flowchart TD
     FCHK -->|N| DEDUCT
     F -->|N| REF
     D -->|N| E{"3개월전 기간 8일 이상?\n※sorted4=0일 때만 도달"}
-    E -->|Y| E1{"기간 종료일 이후 출역?"}
+    E -->|Y| E1{"기간 종료일\n또는 이후 출역?"}
     E1 -->|Y| E2{"sorted3 >= 8?"}
     E1 -->|N| REF
     E2 -->|Y| ECHK{"공제내역?"}
-    E2 -->|N| PASS2[통과]
+    E2 -->|N| NORE[비대상]
     ECHK -->|Y| AMT
     ECHK -->|N| DEDUCT
     E -->|N| REF
 ```
 
+> **Step 5a 공제 정당 조건** (4개 중 하나 충족): ①기간 종료일 이후 출역(`afterPeriod4 > 0`) / ②기간 첫날·마지막날 모두 출역(`firstAndLastWorked`) / ③sorted4 단독 8일 이상(`sorted4Enough`) / ④sorted4가 1/30·31 + sorted3 말일 출역(`sorted3LastDayWorked`)  
 > **Step 5a 징수 조건**: `sorted5 없음` + 공제 내역 없음 → 징수. `sorted5 있고 sorted3 < 8`이면 비대상.  
 > **Step 5b 공제 정당 조건**: `sorted4 > 0`이면 공제 정당 (sorted5 여부 무관). sorted4=0이면 sorted5 있어도 Step 5c로.  
+> **Step 5c 공제 정당 조건**: 기간 종료일 당일(`>=`) 또는 이후 출역. Step 5a(`>` 엄격)와 달리 당일 포함.  
 > **Step 5c 징수 조건**: `sorted3 >= 8` + 공제 내역 없음 → 징수 (sorted4=0인 경우라 sorted3 자체가 기준).
 
 ---

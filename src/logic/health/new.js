@@ -367,14 +367,12 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
     if (afterPeriod4.length > 0 || firstAndLastWorked || sorted4Enough || sorted3LastDayWorked) {
       console.log('[신규v2] Step 5a: 공제 정당');
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-      if (deductibleSet.size === 0) {
-        // 5개월전 있고 sorted3 < 8 → 기존 로직(BC1 비대상)과 동일하게 처리
-        if (twoMonthsAgo.length > 0 && sorted3.length < 8) {
-          console.log('[신규v2] Step 5a: sorted5 있음 + sorted3 < 8 → 비대상');
-          return { refunds, deducts };
-        }
-        deducts.push(...sorted3);
+      // 5개월전 있고 sorted3 < 8 → 기존 로직(BC1 비대상)과 동일하게 처리
+      if (deductibleSet.size === 0 && twoMonthsAgo.length > 0 && sorted3.length < 8) {
+        console.log('[신규v2] Step 5a: sorted5 있음 + sorted3 < 8 → 비대상');
+        return { refunds, deducts };
       }
+      if (deductibleSet.size === 0) deducts.push(...sorted3);
       return { refunds, deducts };
     }
 
@@ -389,13 +387,13 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
   console.log(`[신규v2] Step 5b: 4개월전 기간 ${period4Count}일 < 8`);
   if (sorted4.length > 0) {
     console.log('[신규v2] Step 5b: 4개월전 출역 있음 → 공제 정당');
-    if (sorted3.length >= 8) {
-      console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-      if (deductibleSet.size === 0) deducts.push(...sorted3);
-    } else {
+    if (sorted3.length < 8) {
       console.log('[신규v2] Step 5b: sorted3 < 8 → 환급');
       addRefund();
+      return { refunds, deducts };
     }
+    console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
+    if (deductibleSet.size === 0) deducts.push(...sorted3);
     return { refunds, deducts };
   }
 
