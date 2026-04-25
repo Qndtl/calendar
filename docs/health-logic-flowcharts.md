@@ -101,7 +101,7 @@ flowchart TD
     C2 -->|N| CCHK{"공제내역?"}
     CCHK -->|Y| AMT[금액비교]
     CCHK -->|N| DEDUCT[징수]
-    C -->|N| D{"sorted5>0 또는 sorted4>0?"}
+    C -->|N| D{"sorted4>0?\n※sorted5 여부 무관"}
     D -->|Y| F{"sorted3 >= 8?"}
     F -->|Y| FCHK{"공제내역?"}
     FCHK -->|Y| AMT
@@ -119,6 +119,7 @@ flowchart TD
 ```
 
 > **Step 5a 징수 조건**: `sorted5 없음` + 공제 내역 없음 → 징수. `sorted5 있고 sorted3 < 8`이면 비대상.  
+> **Step 5b 공제 정당 조건**: `sorted4 > 0`이면 공제 정당 (sorted5 여부 무관). sorted4=0이면 sorted5 있어도 Step 5c로.  
 > **Step 5c 징수 조건**: `sorted3 >= 8` + 공제 내역 없음 → 징수 (sorted4=0인 경우라 sorted3 자체가 기준).
 
 ---

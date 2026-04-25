@@ -205,18 +205,12 @@ calculateHealthInsuranceRefund
         │   └─ 위 조건 미충족
         │       → 공제 부당 → 환급
         │
-        ├─ 5b. 4개월전 기간 < 8일 → "앞에서 온 신호" 체크
-        │   ├─ sorted5>0 (5개월전 있음)
-        │   │   ├─ sorted3 >= 8일 → 공제 정당 → 금액비교 / 징수
+        ├─ 5b. 4개월전 기간 < 8일 → sorted4 유무 체크
+        │   ├─ sorted4>0 (4개월전 있음) → 공제 정당 (sorted5/초일 여부 무관)
+        │   │   ├─ sorted3 >= 8일 → 금액비교 / 징수
         │   │   └─ sorted3 < 8일 → 환급
-        │   ├─ sorted4 초일 출역
-        │   │   ├─ sorted3 >= 8일 → 공제 정당 → 금액비교 / 징수
-        │   │   └─ sorted3 < 8일 → 환급
-        │   ├─ sorted4>0 + sorted3>=8 (Branch F)
-        │   │   → 공제 정당 → 금액비교 / 징수
-        │   ├─ sorted4>0 + sorted3<8 (Branch F sub)
-        │   │   → 환급 (period3Count가 sorted2 포함으로 >=8이어도 요건 불충족)
-        │   └─ sorted4=0 → Step 5c/5d로
+        │   └─ sorted4=0 (4개월전 없음) → Step 5c/5d로
+        │       ※ sorted5 있어도 sorted4 없으면 공제 정당 근거 없음
         │
         ├─ 5c. 3개월전 기간 >= 8일 ※sorted4=0일 때만 도달
         │   ├─ 기간 종료일 이후 출역 있음
@@ -250,7 +244,9 @@ calculateHealthInsuranceRefund
 ### 5개월전 출역 유무 (기존 B)
 
 - **기존**: 별도 분기 — 5개월전 있으면 3개월전만 체크
-- **신규**: 5개월전 유무와 무관하게 동일 플로우. 결과는 같되 분기 제거
+- **신규**: sorted4 있음 여부만 체크. sorted5는 별도 분기 없이 sorted4 조건에 흡수됨
+  - sorted4 있음 → 공제 정당 (sorted5 유무 무관)
+  - sorted4 없음 → Step 5c로 (sorted5 있어도 공제 정당 근거 없음)
 
 ---
 

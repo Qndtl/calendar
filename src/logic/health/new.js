@@ -406,54 +406,22 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
   // ─── Step 5b: 4개월전 기간 < 8 ───
   console.log(`[신규v2] Step 5b: 4개월전 기간 ${period4Count}일 < 8`);
 
-  // 5개월전 있음 + 4개월전 있음 → 이전 크로스월이 성립 → 공제 정당
-  // sorted4 없으면 4개월전 단절로 공제 정당 근거 없음 → Step 5c로
-  if (sorted5.length > 0 && sorted4.length > 0) {
-    console.log('[신규v2] Step 5b: 5개월전 + 4개월전 출역 있음 → 공제 정당');
+  // 4개월전 있음 → 공제 정당 (sorted5/초일 여부 무관하게 sorted3 크기로만 분기)
+  // sorted4 없으면 4개월전 단절 → Step 5c로
+  if (sorted4.length > 0) {
+    console.log('[신규v2] Step 5b: 4개월전 출역 있음 → 공제 정당');
     if (sorted3.length >= 8) {
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
       if (healthDeductibles.length === 0) deducts.push(...sorted3);
-      return { refunds, deducts };
+    } else {
+      console.log('[신규v2] Step 5b: sorted3 < 8 → 환급');
+      const intersect = sorted3.filter(d => healthDeductibles.includes(d));
+      if (intersect.length > 0) refunds.push(...sorted3);
     }
-    console.log('[신규v2] Step 5b: 5개월전 있으나 3개월전 < 8 → 환급');
-    const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-    if (intersect.length > 0) refunds.push(...sorted3);
     return { refunds, deducts };
   }
 
-  // 4개월전 초일 출역 → 연속 고용 신호 → 공제 정당
-  const key4 = getMonthKey(workYear, targetMonth, -1);
-  const [y4init, m4init] = key4.split('-').map(Number);
-  if (sorted4.length > 0 && isFirstDayOfMonth(sorted4[0], y4init, m4init)) {
-    console.log('[신규v2] Step 5b: 4개월전 초일 출역 → 공제 정당');
-    if (sorted3.length >= 8) {
-      console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-      if (healthDeductibles.length === 0) deducts.push(...sorted3);
-      return { refunds, deducts };
-    }
-    console.log('[신규v2] Step 5b: 4개월전 초일 출역이나 3개월전 < 8 → 환급');
-    const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-    if (intersect.length > 0) refunds.push(...sorted3);
-    return { refunds, deducts };
-  }
-
-  // 4개월전 있고 3개월전 단독 8일 이상 → 이미 요건 충족 (Branch F)
-  if (sorted4.length > 0 && sorted3.length >= 8) {
-    console.log('[신규v2] Step 5b: 4개월전 있음 + 3개월전 단독 >= 8 → 공제 정당');
-    console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-    if (healthDeductibles.length === 0) deducts.push(...sorted3);
-    return { refunds, deducts };
-  }
-
-  // 4개월전 있고 3개월전 < 8 → Branch F sub: period3 window에 sorted2 포함돼도 요건 불충족 → 환급
-  if (sorted4.length > 0 && sorted3.length < 8) {
-    console.log('[신규v2] Step 5b: 4개월전 있음 + 3개월전 단독 < 8 → 환급');
-    const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-    if (intersect.length > 0) refunds.push(...sorted3);
-    return { refunds, deducts };
-  }
-
-  console.log(`[신규v2] Step 5b: 3개월전 기간 체크 (period3Count=${period3Count})`);
+  console.log(`[신규v2] Step 5b: sorted4 없음 → 3개월전 기간 체크 (period3Count=${period3Count})`);
 
   // ─── Step 5c: 3개월전 기간 >= 8 ───
   if (period3Count >= 8) {
