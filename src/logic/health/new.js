@@ -272,74 +272,64 @@ export const calculateHealthInsuranceRefund_bk = (groupedDates, workYear, target
   }
 };
 
-// 신규 건강보험 환급 로직 (v2 - 간소화)
+// 신규 건강보험 환급 로직 (v2)
 export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMonth, deductibles, companyId) => {
   console.log(`%c[신규v2] 건강보험 건설사${companyId} 환급 대상 체크 시작`, 'color: #00aaff');
 
   const twoMonthsAgo = groupedDates[getMonthKey(workYear, targetMonth, -2)] || []; // 5개월 전
-  const oneMonthAgo = groupedDates[getMonthKey(workYear, targetMonth, -1)] || [];
-  const currentMonth = groupedDates[getMonthKey(workYear, targetMonth, 0)] || [];
+  const oneMonthAgo  = groupedDates[getMonthKey(workYear, targetMonth, -1)] || [];
+  const currentMonth = groupedDates[getMonthKey(workYear, targetMonth, 0)]  || [];
   const oneMonthAfter = groupedDates[getMonthKey(workYear, targetMonth, 1)] || [];
 
-  const sorted5 = [...twoMonthsAgo].sort();  // 5개월 전
-  const sorted4 = [...oneMonthAgo].sort();   // 4개월 전
-  const sorted3 = [...currentMonth].sort();  // 3개월 전
-  const sorted2 = [...oneMonthAfter].sort(); // 2개월 전
+  const sorted4 = [...oneMonthAgo].sort();
+  const sorted3 = [...currentMonth].sort();
+  const sorted2 = [...oneMonthAfter].sort();
 
-  const healthDeductibles = [...deductibles['eight'], ...deductibles['over']].filter(Boolean);
+  const deductibleSet = new Set([...deductibles['eight'], ...deductibles['over']].filter(Boolean));
   const refunds = [];
   const deducts = [];
 
-  // 3개월전 첫 출역이 1/30 or 1/31 특수일인지 확인
   const is3MonthSpecial = sorted3.length > 0 &&
     (sorted3[0].endsWith('-01-30') || sorted3[0].endsWith('-01-31'));
 
-  // Step 1 합산: 4개월전 없으면 3개월전+2개월전 합산 (window가 sorted2까지 걸칠 수 있음), 있으면 4개월전+3개월전 합산
+  // 공제 내역이 있는 날이 있으면 sorted3 전체를 환급 대상으로 추가
+  const addRefund = () => {
+    if (sorted3.some(d => deductibleSet.has(d))) refunds.push(...sorted3);
+  };
+
   const totalDays = sorted4.length === 0
     ? sorted3.length + sorted2.length
     : sorted4.length + sorted3.length;
 
-  // ─── Step 1: 합산 출역 8일 미만 → 공제된 것 환급 ───
+  // ─── Step 1: 합산 출역 8일 미만 ───
   if (totalDays < 8) {
     console.log(`[신규v2] Step 1: 합산 출역 ${totalDays}일 < 8 → 공제된 것 환급`);
-    const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-    if (intersect.length > 0) refunds.push(...sorted3);
+    addRefund();
     return { refunds, deducts };
   }
 
-  console.log(`[신규v2] Step 2: 3+4개월전 전체 출역 ${totalDays}일 >= 8 → 기간 체크`);
+  console.log(`[신규v2] Step 2: 합산 ${totalDays}일 >= 8 → 기간 체크`);
 
-  // ─── 기간 계산 ───
   const allDates = [...sorted4, ...sorted3, ...sorted2].sort();
 
-  // 4개월 전 기간: 첫출역 ~ +30일 (초일이면 당월 말일까지)
-  let period4Start = null;
-  let period4End = null;
-  let period4Count = 0;
-
+  // 4개월전 기간: 첫출역 ~ +30일 (초일이면 당월 말일까지)
+  let period4Start = null, period4End = null, period4Count = 0;
   if (sorted4.length > 0) {
     period4Start = sorted4[0];
     const firstDate4 = new Date(sorted4[0]);
     const key4 = getMonthKey(workYear, targetMonth, -1);
     const [y4, m4] = key4.split('-').map(Number);
-
     if (isFirstDayOfMonth(sorted4[0], y4, m4)) {
-      // 초일 출역 → 당월 말일
-      const lastDay = new Date(y4, m4, 0).getDate();
-      period4End = `${key4}-${String(lastDay).padStart(2, '0')}`;
+      period4End = `${key4}-${String(new Date(y4, m4, 0).getDate()).padStart(2, '0')}`;
     } else {
       const daysInMonth = new Date(firstDate4.getFullYear(), firstDate4.getMonth() + 1, 0).getDate();
       period4End = formatFromDate(new Date(firstDate4.getTime() + (daysInMonth - 1) * 24 * 60 * 60 * 1000));
     }
-
     period4Count = allDates.filter(d => d >= period4Start && d <= period4End).length;
   }
 
-  // 3개월 전 기간 (from-start): 첫출역 ~ 첫출역 + (해당월 마지막일 - 1)
-  let period3Start = null;
-  let period3End = null;
-  let period3Count = 0;
-
+  // 3개월전 기간 (from-start): 첫출역 ~ 첫출역 + (해당월 일수 - 1)
+  let period3Start = null, period3End = null, period3Count = 0;
   if (sorted3.length > 0) {
     period3Start = sorted3[0];
     const firstDate3 = new Date(sorted3[0]);
@@ -349,45 +339,37 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
   }
 
   console.log(`[신규v2] 4개월전 기간: ${period4Start} ~ ${period4End} (${period4Count}일)`);
-  console.log(`[신규v2] 3개월전 기간(from-start): ${period3Start} ~ ${period3End} (${period3Count}일)`);
+  console.log(`[신규v2] 3개월전 기간: ${period3Start} ~ ${period3End} (${period3Count}일)`);
 
-  // ─── Step 3-4: 모든 기간 8일 미만 → 환급 (3개월전 내역만) ───
+  // ─── Step 3-4: 모든 기간 8일 미만 ───
   if (period4Count < 8 && period3Count < 8) {
-    console.log('[신규v2] Step 4: 두 기간 모두 8일 미만 → 환급 (3개월전 내역)');
-    const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-    if (intersect.length > 0) refunds.push(...sorted3);
+    console.log('[신규v2] Step 4: 두 기간 모두 8일 미만 → 환급');
+    addRefund();
     return { refunds, deducts };
   }
 
-  // ─── Step 5: 하나라도 8일 이상 ───
   console.log('[신규v2] Step 5: 기간 중 하나 이상 8일 이상');
 
   // ─── Step 5a: 4개월전 기간 >= 8 ───
   if (period4Count >= 8) {
     console.log(`[신규v2] Step 5a: 4개월전 기간 ${period4Count}일 >= 8`);
 
-    // 4개월전 단독 8일 이상 → 이미 요건 충족 (Branch E)
     const sorted4Enough = sorted4.length >= 8;
-
-    // 기간 후 ~ 2개월전 말일 출역 체크
     const afterPeriod4 = allDates.filter(d => d > period4End);
-    // 기간 첫날 AND 마지막날 출역 체크
     const firstAndLastWorked = allDates.includes(period4Start) && allDates.includes(period4End);
-
-    // 4개월전 1/30, 1/31 특수일: period4End가 3월로 넘어가므로 3개월전 말일 출역 체크 (Branch D)
-    const is4MonthSpecial = sorted4.length > 0 &&
-      (sorted4[0].endsWith('-01-30') || sorted4[0].endsWith('-01-31'));
+    // 4개월전 1/30·31: period4End가 3월로 넘어가므로 3개월전 말일 출역도 공제 정당 신호
+    const is4MonthSpecial = sorted4[0]?.endsWith('-01-30') || sorted4[0]?.endsWith('-01-31');
     const key3 = getMonthKey(workYear, targetMonth, 0);
     const [y3, m3] = key3.split('-').map(Number);
-    const sorted3LastDay = `${key3}-${String(new Date(y3, m3, 0).getDate()).padStart(2, '0')}`;
-    const sorted3LastDayWorked = is4MonthSpecial && sorted3.includes(sorted3LastDay);
+    const sorted3LastDayWorked = is4MonthSpecial &&
+      sorted3.includes(`${key3}-${String(new Date(y3, m3, 0).getDate()).padStart(2, '0')}`);
 
     if (afterPeriod4.length > 0 || firstAndLastWorked || sorted4Enough || sorted3LastDayWorked) {
       console.log('[신규v2] Step 5a: 공제 정당');
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-      if (healthDeductibles.length === 0) {
-        // sorted5 있고 sorted3 < 8 → 기존 로직(BC1 비대상)과 동일하게 처리
-        if (sorted5.length > 0 && sorted3.length < 8) {
+      if (deductibleSet.size === 0) {
+        // 5개월전 있고 sorted3 < 8 → 기존 로직(BC1 비대상)과 동일하게 처리
+        if (twoMonthsAgo.length > 0 && sorted3.length < 8) {
           console.log('[신규v2] Step 5a: sorted5 있음 + sorted3 < 8 → 비대상');
           return { refunds, deducts };
         }
@@ -396,64 +378,54 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
       return { refunds, deducts };
     }
 
-    // 공제 부당 → 환급
-    console.log('[신규v2] Step 5a: 기간 후 출역 없음 & 기타 조건 미충족 → 환급');
-    const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-    if (intersect.length > 0) refunds.push(...sorted3);
+    console.log('[신규v2] Step 5a: 공제 부당 → 환급');
+    addRefund();
     return { refunds, deducts };
   }
 
   // ─── Step 5b: 4개월전 기간 < 8 ───
-  console.log(`[신규v2] Step 5b: 4개월전 기간 ${period4Count}일 < 8`);
-
-  // 4개월전 있음 → 공제 정당 (sorted5/초일 여부 무관하게 sorted3 크기로만 분기)
+  // sorted4 있음 → 공제 정당 (sorted5/초일 여부 무관하게 sorted3 크기로만 분기)
   // sorted4 없으면 4개월전 단절 → Step 5c로
+  console.log(`[신규v2] Step 5b: 4개월전 기간 ${period4Count}일 < 8`);
   if (sorted4.length > 0) {
     console.log('[신규v2] Step 5b: 4개월전 출역 있음 → 공제 정당');
     if (sorted3.length >= 8) {
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-      if (healthDeductibles.length === 0) deducts.push(...sorted3);
+      if (deductibleSet.size === 0) deducts.push(...sorted3);
     } else {
       console.log('[신규v2] Step 5b: sorted3 < 8 → 환급');
-      const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-      if (intersect.length > 0) refunds.push(...sorted3);
+      addRefund();
     }
     return { refunds, deducts };
   }
 
+  // ─── Step 5c: 3개월전 기간 >= 8 (sorted4=0일 때만 도달) ───
   console.log(`[신규v2] Step 5b: sorted4 없음 → 3개월전 기간 체크 (period3Count=${period3Count})`);
-
-  // ─── Step 5c: 3개월전 기간 >= 8 ───
   if (period3Count >= 8) {
     console.log(`[신규v2] Step 5c: 3개월전 기간 ${period3Count}일 >= 8`);
 
-    // 기간 종료일 이후 출역 여부 체크
-    // 특수일(1/30, 1/31)로 period3End가 3월을 넘어가는 경우, sorted2 말일 출역도 공제 정당으로 인정
+    // 특수일(1/30·31)로 period3End가 3월을 넘어가는 경우 sorted2 말일 출역도 공제 정당으로 인정
     const key2 = getMonthKey(workYear, targetMonth, 1);
     const [y2, m2] = key2.split('-').map(Number);
-    const sorted2LastDay = sorted2.length > 0 ? `${key2}-${String(new Date(y2, m2, 0).getDate()).padStart(2, '0')}` : null;
-    const sorted2LastWorked = sorted2LastDay && sorted2.includes(sorted2LastDay);
-    const afterPeriod3 = allDates.some(d => d >= period3End) || (is3MonthSpecial && sorted2LastWorked);
+    const sorted2LastDay = sorted2.length > 0
+      ? `${key2}-${String(new Date(y2, m2, 0).getDate()).padStart(2, '0')}` : null;
+    const afterPeriod3 = allDates.some(d => d >= period3End) ||
+      (is3MonthSpecial && sorted2LastDay && sorted2.includes(sorted2LastDay));
 
     if (afterPeriod3) {
       console.log('[신규v2] Step 5c: 공제 정당');
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-      if (healthDeductibles.length === 0 && sorted3.length >= 8) {
-        deducts.push(...sorted3);
-      }
+      if (deductibleSet.size === 0 && sorted3.length >= 8) deducts.push(...sorted3);
       return { refunds, deducts };
     }
 
-    // 공제 부당 → 환급
-    console.log('[신규v2] Step 5c: 기간 종료일 이후 출역 없음 → 환급');
-    const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-    if (intersect.length > 0) refunds.push(...sorted3);
+    console.log('[신규v2] Step 5c: 공제 부당 → 환급');
+    addRefund();
     return { refunds, deducts };
   }
 
   // ─── Step 5d: 3개월전 기간 < 8 → 무조건 환급 ───
   console.log(`[신규v2] Step 5d: 3개월전 기간 ${period3Count}일 < 8 → 환급`);
-  const intersect = sorted3.filter(d => healthDeductibles.includes(d));
-  if (intersect.length > 0) refunds.push(...sorted3);
+  addRefund();
   return { refunds, deducts };
 };
