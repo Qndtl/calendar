@@ -30,3 +30,7 @@ export const isLastDayOfMonth = (dateStr, workYear, month) => {
   const lastDayOfMonth = new Date(workYear, month, 0).getDate();
   return dateStr.endsWith(`-${lastDayOfMonth}`);
 };
+
+// 건강보험 특수일: 1월 30일 또는 31일 시작 → 기간이 다음 달로 넘어가는 엣지 케이스
+export const isJanSpecialDate = (dateStr) =>
+  dateStr?.endsWith('-01-30') || dateStr?.endsWith('-01-31');

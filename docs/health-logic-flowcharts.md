@@ -37,7 +37,6 @@
 | `allDates` | sorted4 + sorted3 + sorted2 날짜 전체 |
 | `period4Count` | allDates 중 4개월전 기간 범위 안에 속하는 날짜 수 |
 | `period3Count` | allDates 중 3개월전 기간 범위 안에 속하는 날짜 수 |
-| `sorted4Enough` | sorted4.length >= 8 (4개월전 단독으로 8일 이상) |
 | `공제내역` | 대상월(sorted3)에 실제 공제된 날짜 목록 |
 
 ### 기존 공제 전용 변수
@@ -94,7 +93,7 @@ flowchart TD
     B1 -->|Y| REF
     B1 -->|N| NORE
     B -->|N| C{"4개월전 기간 8일 이상?"}
-    C -->|Y| C1{"공제 정당 조건 충족?\n①기간이후출역 ②기간경계완성\n③sorted4≥8 ④특수일완성"}
+    C -->|Y| C1{"공제 정당 조건 충족?\n①기간종료일(≥) 이후 출역\n②sorted4≥8 ③특수일완성"}
     C1 -->|Y| C2{"sorted5 있음\n+ sorted3 < 8?"}
     C1 -->|N| REF
     C2 -->|Y| PASS1[비대상]
@@ -118,7 +117,8 @@ flowchart TD
     E -->|N| REF
 ```
 
-> **Step 5a 공제 정당 조건** (4개 중 하나 충족): ①기간 종료일 이후 출역(`afterPeriod4 > 0`) / ②기간 첫날·마지막날 모두 출역(`firstAndLastWorked`) / ③sorted4 단독 8일 이상(`sorted4Enough`) / ④sorted4가 1/30·31 + sorted3 말일 출역(`sorted3LastDayWorked`)  
+> **Step 5a 공제 정당 조건** (3개 중 하나 충족): ①기간 종료일 **당일 또는 이후** 출역(`allDates.some(d >= period4End)`) / ②sorted4 단독 8일 이상(`sorted4.length >= 8`) / ③sorted4가 1/30·31 + sorted3 말일 출역(`sorted3LastDayWorked`)  
+> ※ 구 ①`afterPeriod4>0`(이후)과 ②`firstAndLastWorked`(당일)가 `some(d>=period4End)` 하나로 통합됨  
 > **Step 5a 징수 조건**: `sorted5 없음` + 공제 내역 없음 → 징수. `sorted5 있고 sorted3 < 8`이면 비대상.  
 > **Step 5b 공제 정당 조건**: `sorted4 > 0`이면 공제 정당 (sorted5 여부 무관). sorted4=0이면 sorted5 있어도 Step 5c로.  
 > **Step 5c 공제 정당 조건**: 기간 종료일 당일(`>=`) 또는 이후 출역. Step 5a(`>` 엄격)와 달리 당일 포함.  

@@ -1,5 +1,5 @@
 // 신규 건강보험 공제 로직
-import { formatFromDate, getMonthKey, isFirstDayOfMonth, isLastDayOfMonth } from "@/logic/utils";
+import { formatFromDate, getMonthKey, isFirstDayOfMonth, isJanSpecialDate, isLastDayOfMonth } from "@/logic/utils";
 
 export const calculateHealthInsuranceDeduction = (groupedDates, workYear, workMonth, companyId) => {
   console.log(`%c[신규] 건강보험 건설사${companyId} 공제 대상 체크`, 'color: #00aaff');
@@ -289,8 +289,7 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
   const refunds = [];
   const deducts = [];
 
-  const is3MonthSpecial = sorted3.length > 0 &&
-    (sorted3[0].endsWith('-01-30') || sorted3[0].endsWith('-01-31'));
+  const is3MonthSpecial = sorted3.length > 0 && isJanSpecialDate(sorted3[0]);
 
   // 공제 내역이 있는 날이 있으면 sorted3 전체를 환급 대상으로 추가
   const addRefund = () => {
@@ -350,21 +349,26 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
 
   console.log('[신규v2] Step 5: 기간 중 하나 이상 8일 이상');
 
-  // ─── Step 5a: 4개월전 기간 >= 8 ───
-  if (period4Count >= 8) {
-    console.log(`[신규v2] Step 5a: 4개월전 기간 ${period4Count}일 >= 8`);
+  if (sorted4.length > 0) {
+    // ─── Step 5a: sorted4 있음 + 4개월전 기간 >= 8 ───
+    if (period4Count >= 8) {
+      console.log(`[신규v2] Step 5a: 4개월전 기간 ${period4Count}일 >= 8`);
 
-    const sorted4Enough = sorted4.length >= 8;
-    const afterPeriod4 = allDates.filter(d => d > period4End);
-    const firstAndLastWorked = allDates.includes(period4Start) && allDates.includes(period4End);
-    // 4개월전 1/30·31: period4End가 3월로 넘어가므로 3개월전 말일 출역도 공제 정당 신호
-    const is4MonthSpecial = sorted4[0]?.endsWith('-01-30') || sorted4[0]?.endsWith('-01-31');
-    const key3 = getMonthKey(workYear, targetMonth, 0);
-    const [y3, m3] = key3.split('-').map(Number);
-    const sorted3LastDayWorked = is4MonthSpecial &&
-      sorted3.includes(`${key3}-${String(new Date(y3, m3, 0).getDate()).padStart(2, '0')}`);
+      // 4개월전 1/30·31: period4End가 3월로 넘어가므로 3개월전 말일 출역도 공제 정당 신호
+      const sorted3LastDayWorked = isJanSpecialDate(sorted4[0]) && (() => {
+        const [y3, m3] = getMonthKey(workYear, targetMonth, 0).split('-').map(Number);
+        return sorted3.some(d => isLastDayOfMonth(d, y3, m3));
+      })();
 
-    if (afterPeriod4.length > 0 || firstAndLastWorked || sorted4Enough || sorted3LastDayWorked) {
+      // period4Start(=sorted4[0])는 항상 allDates에 포함 →
+      // afterPeriod4(d > period4End) + firstAndLastWorked(d === period4End) = some(d >= period4End)
+      const justified = sorted4.length >= 8 || allDates.some(d => d >= period4End) || sorted3LastDayWorked;
+      if (!justified) {
+        console.log('[신규v2] Step 5a: 공제 부당 → 환급');
+        addRefund();
+        return { refunds, deducts };
+      }
+
       console.log('[신규v2] Step 5a: 공제 정당');
       console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
       // 5개월전 있고 sorted3 < 8 → 기존 로직(BC1 비대상)과 동일하게 처리
@@ -376,17 +380,9 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
       return { refunds, deducts };
     }
 
-    console.log('[신규v2] Step 5a: 공제 부당 → 환급');
-    addRefund();
-    return { refunds, deducts };
-  }
-
-  // ─── Step 5b: 4개월전 기간 < 8 ───
-  // sorted4 있음 → 공제 정당 (sorted5/초일 여부 무관하게 sorted3 크기로만 분기)
-  // sorted4 없으면 4개월전 단절 → Step 5c로
-  console.log(`[신규v2] Step 5b: 4개월전 기간 ${period4Count}일 < 8`);
-  if (sorted4.length > 0) {
-    console.log('[신규v2] Step 5b: 4개월전 출역 있음 → 공제 정당');
+    // ─── Step 5b: sorted4 있음 + 4개월전 기간 < 8 → 공제 정당 ───
+    // (period3Count >= 8 보장: Step 3-4에서 양쪽 < 8이면 이미 return)
+    console.log(`[신규v2] Step 5b: 4개월전 기간 ${period4Count}일 < 8, sorted4 있음 → 공제 정당`);
     if (sorted3.length < 8) {
       console.log('[신규v2] Step 5b: sorted3 < 8 → 환급');
       addRefund();
@@ -397,33 +393,24 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
     return { refunds, deducts };
   }
 
-  // ─── Step 5c: 3개월전 기간 >= 8 (sorted4=0일 때만 도달) ───
-  console.log(`[신규v2] Step 5b: sorted4 없음 → 3개월전 기간 체크 (period3Count=${period3Count})`);
-  if (period3Count >= 8) {
-    console.log(`[신규v2] Step 5c: 3개월전 기간 ${period3Count}일 >= 8`);
+  // ─── Step 5c: sorted4=0, 3개월전 기간 체크 ───
+  // period3Count >= 8 보장: sorted4=0이면 period4Count=0 < 8이므로
+  // Step 3-4를 통과했다는 것 = period3Count >= 8
+  console.log(`[신규v2] Step 5c: sorted4 없음, 3개월전 기간 ${period3Count}일 >= 8`);
 
-    // 특수일(1/30·31)로 period3End가 3월을 넘어가는 경우 sorted2 말일 출역도 공제 정당으로 인정
-    const key2 = getMonthKey(workYear, targetMonth, 1);
-    const [y2, m2] = key2.split('-').map(Number);
-    const sorted2LastDay = sorted2.length > 0
-      ? `${key2}-${String(new Date(y2, m2, 0).getDate()).padStart(2, '0')}` : null;
-    const afterPeriod3 = allDates.some(d => d >= period3End) ||
-      (is3MonthSpecial && sorted2LastDay && sorted2.includes(sorted2LastDay));
+  // 특수일(1/30·31)로 period3End가 3월을 넘어가는 경우 sorted2 말일 출역도 공제 정당으로 인정
+  const [y2, m2] = getMonthKey(workYear, targetMonth, 1).split('-').map(Number);
+  const afterPeriod3 = allDates.some(d => d >= period3End) ||
+    (is3MonthSpecial && sorted2.some(d => isLastDayOfMonth(d, y2, m2)));
 
-    if (afterPeriod3) {
-      console.log('[신규v2] Step 5c: 공제 정당');
-      console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-      if (deductibleSet.size === 0 && sorted3.length >= 8) deducts.push(...sorted3);
-      return { refunds, deducts };
-    }
-
+  if (!afterPeriod3) {
     console.log('[신규v2] Step 5c: 공제 부당 → 환급');
     addRefund();
     return { refunds, deducts };
   }
 
-  // ─── Step 5d: 3개월전 기간 < 8 → 무조건 환급 ───
-  console.log(`[신규v2] Step 5d: 3개월전 기간 ${period3Count}일 < 8 → 환급`);
-  addRefund();
+  console.log('[신규v2] Step 5c: 공제 정당');
+  console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
+  if (deductibleSet.size === 0 && sorted3.length >= 8) deducts.push(...sorted3);
   return { refunds, deducts };
 };
