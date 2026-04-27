@@ -399,19 +399,23 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
   // Step 3-4를 통과했다는 것 = period3Count >= 8
   console.log(`[신규v2] Step 5c: sorted4 없음, 3개월전 기간 ${period3Count}일 >= 8`);
 
-  // 특수일(1/30·31)로 period3End가 3월을 넘어가는 경우 sorted2 말일 출역도 공제 정당으로 인정
-  const [y2, m2] = getMonthKey(workYear, targetMonth, 1).split('-').map(Number);
-  const afterPeriod3 = allDates.some(d => d >= period3End) ||
-    (is3MonthSpecial && sorted2.some(d => isLastDayOfMonth(d, y2, m2)));
+  const [y3, m3] = getMonthKey(workYear, targetMonth, 0).split('-').map(Number);
 
-  if (!afterPeriod3) {
-    console.log('[신규v2] Step 5c: 공제 부당 → 환급');
-    addRefund();
+  // 조건A: 3개월 전 1일 출역 + 말일 출역
+  const conditionA = isFirstDayOfMonth(sorted3[0], y3, m3) &&
+    isLastDayOfMonth(sorted3[sorted3.length - 1], y3, m3);
+
+  // 조건B: period3Start 출역 + period3End 출역 (period3Start = sorted3[0]은 항상 만족)
+  const conditionB = allDates.includes(period3End);
+
+  if (conditionA || conditionB) {
+    console.log('[신규v2] Step 5c: 공제 정당');
+    console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
+    if (deductibleSet.size === 0 && sorted3.length >= 8) deducts.push(...sorted3);
     return { refunds, deducts };
   }
 
-  console.log('[신규v2] Step 5c: 공제 정당');
-  console.log('%c금액 비교 후 징수 or 환급', 'color: #FFA500');
-  if (deductibleSet.size === 0 && sorted3.length >= 8) deducts.push(...sorted3);
+  console.log('[신규v2] Step 5c: 공제 부당 → 환급');
+  addRefund();
   return { refunds, deducts };
 };
