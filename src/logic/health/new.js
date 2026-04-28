@@ -363,7 +363,8 @@ export const calculateHealthInsuranceRefund = (groupedDates, workYear, targetMon
       // period4End(첫 출역 +30일) 이후 출역이 있어야 공제 정당
       // sorted4.length >= 8 단독으로는 정당 근거 불충분:
       //   예) 12/10~17(8일) + 1/5, 1/8 → period4End=1/9 미출역 → 환급 대상
-      const justified = allDates.some(d => d >= period4End) || sorted3LastDayWorked;
+      // 단, 5개월전(twoMonthsAgo)에도 출역이 있으면 연속근로 인정 → 공제 정당
+      const justified = allDates.some(d => d >= period4End) || sorted3LastDayWorked || twoMonthsAgo.length > 0;
       if (!justified) {
         console.log('[신규v2] Step 5a: 공제 부당 → 환급');
         addRefund();

@@ -93,7 +93,7 @@ flowchart TD
     B1 -->|Y| REF
     B1 -->|N| NORE
     B -->|N| C{"4개월전 기간 8일 이상?"}
-    C -->|Y| C1{"공제 정당 조건 충족?\n①기간종료일(≥) 이후 출역\n②sorted4≥8 ③특수일완성"}
+    C -->|Y| C1{"공제 정당 조건 충족?\n①기간종료일(≥) 이후 출역\n②특수일완성 ③sorted5 있음"}
     C1 -->|Y| C2{"sorted5 있음\n+ sorted3 < 8?"}
     C1 -->|N| REF
     C2 -->|Y| PASS1[비대상]
@@ -117,7 +117,7 @@ flowchart TD
     E -->|N| REF
 ```
 
-> **Step 5a 공제 정당 조건** (3개 중 하나 충족): ①기간 종료일 **당일 또는 이후** 출역(`allDates.some(d >= period4End)`) / ②sorted4 단독 8일 이상(`sorted4.length >= 8`) / ③sorted4가 1/30·31 + sorted3 말일 출역(`sorted3LastDayWorked`)  
+> **Step 5a 공제 정당 조건** (3개 중 하나 충족): ①기간 종료일 **당일 또는 이후** 출역(`allDates.some(d >= period4End)`) / ②sorted4가 1/30·31 + sorted3 말일 출역(`sorted3LastDayWorked`) / ③sorted5(5개월전) 출역 있음(`twoMonthsAgo.length > 0`) — 연속근로 인정  
 > ※ 구 ①`afterPeriod4>0`(이후)과 ②`firstAndLastWorked`(당일)가 `some(d>=period4End)` 하나로 통합됨  
 > **Step 5a 징수 조건**: `sorted5 없음` + 공제 내역 없음 → 징수. `sorted5 있고 sorted3 < 8`이면 비대상.  
 > **Step 5b 공제 정당 조건**: `sorted4 > 0`이면 공제 정당 (sorted5 여부 무관). sorted4=0이면 sorted5 있어도 Step 5c로.  

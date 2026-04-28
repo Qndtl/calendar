@@ -198,11 +198,14 @@ calculateHealthInsuranceRefund
     └─ Step 5. 하나라도 >= 8일
         │
         ├─ 5a. 4개월전 기간 >= 8일
-        │   ├─ 기간 종료일 이후 출역 있음
+        │   ├─ 공제 정당 조건 (하나 이상 충족)
+        │   │   ① 기간 종료일 당일 또는 이후 출역 (`allDates.some(d >= period4End)`)
+        │   │   ② sorted4가 1/30·31 + sorted3 말일 출역 (`sorted3LastDayWorked`)
+        │   │   ③ sorted5(5개월전) 출역 있음 → 연속근로 인정 (`twoMonthsAgo.length > 0`)
         │   │   → 공제 정당
         │   │   ├─ 공제내역 있음 → 금액비교
         │   │   └─ 공제내역 없음 → 징수 (3개월전 출역 날짜 전체)
-        │   └─ 위 조건 미충족
+        │   └─ 위 조건 모두 미충족
         │       → 공제 부당 → 환급
         │
         ├─ 5b. 4개월전 기간 < 8일 → sorted4 유무 체크

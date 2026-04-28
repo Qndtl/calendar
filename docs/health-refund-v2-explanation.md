@@ -61,11 +61,12 @@ sorted4가 없으면 → `sorted3.length + sorted2.length`
 **① 기간 종료일 당일 또는 이후 출역**
 `allDates.some(d => d >= period4End)` — "그 이후에도 계속 일했다"는 증거가 있으면 공제 정당.
 
-**② sorted4 단독 8일 이상**
-`sorted4.length >= 8` — 4개월전 월 출역 자체가 8일 이상이면 기간 계산 없이도 공제 정당.
-
-**③ 특수일 완성 (1/30·31 + sorted3 말일 출역)**
+**② 특수일 완성 (1/30·31 + sorted3 말일 출역)**
 sorted4 첫 출역이 1/30 또는 1/31이면 period4End가 3월로 넘어가므로, sorted3(3개월전) 말일 출역이 있으면 정당 조건으로 인정.
+
+**③ sorted5(5개월전) 출역 있음 — 연속근로 인정**
+`twoMonthsAgo.length > 0` — 5개월전에도 출역 기록이 있으면 4개월전-3개월전 연속근로가 성립한 것으로 보아 공제 정당.
+예) 2월 출역 + 3월 출역 → 4월 공제는 연속근로이므로 정당.
 
 ※ 구 로직의 `afterPeriod4 > 0`(엄격히 이후)과 `firstAndLastWorked`(당일 포함)가 `some(d >= period4End)` 하나로 통합됨
 
