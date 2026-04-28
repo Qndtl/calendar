@@ -216,11 +216,11 @@ calculateHealthInsuranceRefund
         │       ※ sorted5 있어도 sorted4 없으면 공제 정당 근거 없음
         │
         ├─ 5c. 3개월전 기간 >= 8일 ※sorted4=0일 때만 도달
-        │   ├─ 기간 종료일 이후 출역 있음
+        │   ├─ conditionA 충족: sorted3 초일 출역 + (말일 출역 OR sorted2 있음)
         │   │   → 공제 정당
         │   │   ├─ 공제내역 있음 → 금액비교
         │   │   └─ 공제내역 없음 → 징수 (3개월전 출역 날짜 전체)
-        │   └─ 위 조건 미충족
+        │   └─ conditionA 미충족 (초일 미출역 또는 연속성 없음)
         │       → 환급
         │
         └─ 5d. 3개월전 기간 < 8일

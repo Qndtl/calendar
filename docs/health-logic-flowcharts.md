@@ -107,7 +107,7 @@ flowchart TD
     FCHK -->|N| DEDUCT
     F -->|N| REF
     D -->|N| E{"3개월전 기간 8일 이상?\n※sorted4=0일 때만 도달"}
-    E -->|Y| E1{"기간 종료일\n또는 이후 출역?"}
+    E -->|Y| E1{"conditionA?\n초일 출역\n+ (말일 출역 OR sorted2 있음)"}
     E1 -->|Y| E2{"sorted3 >= 8?"}
     E1 -->|N| REF
     E2 -->|Y| ECHK{"공제내역?"}
@@ -121,7 +121,7 @@ flowchart TD
 > ※ 구 ①`afterPeriod4>0`(이후)과 ②`firstAndLastWorked`(당일)가 `some(d>=period4End)` 하나로 통합됨  
 > **Step 5a 징수 조건**: `sorted5 없음` + 공제 내역 없음 → 징수. `sorted5 있고 sorted3 < 8`이면 비대상.  
 > **Step 5b 공제 정당 조건**: `sorted4 > 0`이면 공제 정당 (sorted5 여부 무관). sorted4=0이면 sorted5 있어도 Step 5c로.  
-> **Step 5c 공제 정당 조건**: 기간 종료일 당일(`>=`) 또는 이후 출역. Step 5a(`>` 엄격)와 달리 당일 포함.  
+> **Step 5c 공제 정당 조건**: conditionA 하나. `sorted3[0]` 이 초일(1일) AND (`sorted3[last]` 이 말일 OR `sorted2.length > 0`). 초일 출역 없으면 무조건 환급.  
 > **Step 5c 징수 조건**: `sorted3 >= 8` + 공제 내역 없음 → 징수 (sorted4=0인 경우라 sorted3 자체가 기준).
 
 ---

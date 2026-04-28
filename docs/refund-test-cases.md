@@ -303,8 +303,7 @@
 2. period4Count = 0 < 8 → Step 5a 미진입
 3. Step 5b: sorted4=0 → **통과** (sorted5 있어도 sorted4 없으면 공제 정당 근거 없음)
 4. Step 5c: period3Count = 8 >= 8
-5. 기간 종료일(2026-02-04) 이후 출역: 없음 → **공제 부당**
-   - period3End: sorted3[0]=01-05, 1월=31일 → 01-05+30일=**02-04**
+5. conditionA: sorted3[0]=01-05 (초일 아님) → **false** → 공제 부당
 6. 공제 내역 있음 ✓
 7. **결과: 환급 (₩100,000)**
 
@@ -336,8 +335,7 @@
 2. period4Count = 0 < 8 → Step 5a 미진입
 3. Step 5b: sorted4=0 → **통과**
 4. Step 5c: period3Count = 8 >= 8
-5. 기간 종료일(2026-02-04) 이후 출역: 없음 → **공제 부당**
-   - period3End: sorted3[0]=01-05, 1월=31일 → 01-05+30일=**02-04**
+5. conditionA: sorted3[0]=01-05 (초일 아님) → **false** → 공제 부당
 6. 공제 내역 없음 → **비대상**
 7. **결과: 비대상**
 
@@ -379,21 +377,21 @@
 
 ---
 
-## 케이스 13: Step 5c `>=` 엣지 — period3End 당일 출역 → 공제 정당 → 징수
+## 케이스 13: Step 5c conditionA — 초일 출역 + sorted2 있음 → 공제 정당 → 징수
 
-> Step 5c는 `allDates.some(d >= period3End)` — period3End **당일 포함**.  
-> Step 5a도 `some(d >= period4End)`로 통합됐으나, Step 5c는 추가로 특수일 조건이 없어 구조가 더 단순.
+> Step 5c는 conditionA 하나로만 공제 정당을 판단.  
+> sorted3 초일 출역 + (말일 출역 OR sorted2 있음) 충족 시 공제 정당.
 
 ### 입력
 ```
 [4개월전 - 2025년 12월] 없음  ← sorted4 = 0
 
 [3개월전 - 2026년 1월] 8일
+- 2026-01-01, 2026-01-02, 2026-01-03, 2026-01-04
 - 2026-01-05, 2026-01-06, 2026-01-07, 2026-01-08
-- 2026-01-09, 2026-01-10, 2026-01-11, 2026-01-12
 
 [2개월전 - 2026년 2월] 1일
-- 2026-02-04  ← period3End 당일
+- 2026-02-05  ← sorted2 있음
 
 공제 내역: 없음
 ```
@@ -403,13 +401,13 @@
 2. period4Count = 0 < 8 → Step 5a 미진입
 3. Step 5b: sorted4=0 → **통과** → Step 5c
 4. Step 5c: period3Count
-   - period3Start = 01-05, period3End = **02-04** (1월=31일 → 01-05+30일)
-   - allDates = [01-05~12, 02-04], 범위 내([01-05, 02-04]) = **9일 >= 8**
-5. `afterPeriod3`: allDates.some(d >= "02-04") → 02-04 >= 02-04 → **true** (당일 포함 `>=`)
-6. 공제 정당. 공제 내역 없음 + sorted3(8) >= 8 → **징수**
+   - period3Start = 01-01, period3End = 01-31 (초일이므로 말일 고정)
+   - 범위 내 출역: 01-01~01-08 = **8일 >= 8**
+5. conditionA: sorted3[0]=01-01 (초일 ✓), sorted3[last]=01-08 (말일 아님), sorted2.length=1 > 0 ✓ → **true** → 공제 정당
+6. 공제 내역 없음 + sorted3(8) >= 8 → **징수**
 7. **결과: 징수 (DEDUCT)**
 
-> Step 5a·5c 모두 `some(d >= periodEnd)` 방식 — 당일 포함. sorted2에 02-05 이상이 없어도 02-04 당일 출역만으로 공제 정당.
+> 초일 미출역 케이스 비교: sorted3[0]=01-05이면 conditionA false → 환급 (02-05 출역이 있어도 무관)
 
 ---
 
@@ -470,7 +468,7 @@
 | **10** | **있음** | **0일** | **8일** | **sorted4 없음, period3>=8, 후출역X** | **O** | **환급** (버그 수정) |
 | **11** | **있음** | **0일** | **8일** | **sorted4 없음, period3>=8, 후출역X** | **X** | **비대상** (버그 수정) |
 | 12 | 0 | 8일 | 8일 | 4개월전기간>=8, ①some(d>=period4End) | O | **금액비교** |
-| 13 | 있음 | 0일 | 8일 | sorted4 없음, period3>=8, period3End **당일** 출역(`>=`) | X | **징수** |
+| 13 | 0 | 0일 | 8일 | sorted4 없음, period3>=8, conditionA(초일+sorted2) | X | **징수** |
 | **14** | **있음** | **1일** | **8일** | **4개월전기간>=8, 후출역X, ③sorted5 있음(연속근로)** | **O** | **금액비교** (버그 수정) |
 
 > **Step 5a 공제 정당 조건** (①②③ 중 하나): ①`allDates.some(d>=period4End)` / ②sorted4가 1/30·31 + sorted3 말일(`sorted3LastDayWorked`) / ③sorted5 있음(`twoMonthsAgo.length>0`) — 연속근로 인정  
@@ -478,4 +476,4 @@
 > **Step 5a 비대상 조건**: 공제 정당 + `sorted5 있음` + sorted3 < 8  
 > **Step 5b 공제 정당 조건**: `sorted4 > 0`이면 공제 정당 (sorted5 여부 무관)  
 > **sorted4 = 0이면**: sorted5 있어도 Step 5c로 진행 (period3 기간으로 판단)  
-> **Step 5c vs 5a**: 둘 다 `some(d >= periodEnd)` — 당일 포함 동일 방식
+> **Step 5c 공제 정당 조건**: conditionA — `sorted3[0]` 이 초일 AND (`sorted3[last]` 이 말일 OR `sorted2.length > 0`). 초일 미출역이면 무조건 환급
