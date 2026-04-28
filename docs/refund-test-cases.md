@@ -379,10 +379,10 @@
 
 ---
 
-## 케이스 13: Step 5c conditionB — period3End 당일 출역 → 공제 정당 → 징수
+## 케이스 13: Step 5c `>=` 엣지 — period3End 당일 출역 → 공제 정당 → 징수
 
-> Step 5c의 conditionB: `allDates.includes(period3End)` — period3End **당일**만 공제 정당.  
-> period3End **이후** 출역만 있어도 공제 정당 불인정. 당일 출역이 반드시 있어야 함.
+> Step 5c는 `allDates.some(d >= period3End)` — period3End **당일 포함**.  
+> Step 5a도 `some(d >= period4End)`로 통합됐으나, Step 5c는 추가로 특수일 조건이 없어 구조가 더 단순.
 
 ### 입력
 ```
@@ -405,12 +405,11 @@
 4. Step 5c: period3Count
    - period3Start = 01-05, period3End = **02-04** (1월=31일 → 01-05+30일)
    - allDates = [01-05~12, 02-04], 범위 내([01-05, 02-04]) = **9일 >= 8**
-5. conditionA: 초일(01-05 ≠ 01-01) → **false**
-6. conditionB: `allDates.includes("02-04")` → 02-04 있음 → **true**
-7. 공제 정당. 공제 내역 없음 + sorted3(8) >= 8 → **징수**
-8. **결과: 징수 (DEDUCT)**
+5. `afterPeriod3`: allDates.some(d >= "02-04") → 02-04 >= 02-04 → **true** (당일 포함 `>=`)
+6. 공제 정당. 공제 내역 없음 + sorted3(8) >= 8 → **징수**
+7. **결과: 징수 (DEDUCT)**
 
-> period3End 이후(02-05 이상)만 있고 당일 없으면 공제 부당 → 환급. 당일 출역이 핵심.
+> Step 5a·5c 모두 `some(d >= periodEnd)` 방식 — 당일 포함. sorted2에 02-05 이상이 없어도 02-04 당일 출역만으로 공제 정당.
 
 ---
 
@@ -479,4 +478,4 @@
 > **Step 5a 비대상 조건**: 공제 정당 + `sorted5 있음` + sorted3 < 8  
 > **Step 5b 공제 정당 조건**: `sorted4 > 0`이면 공제 정당 (sorted5 여부 무관)  
 > **sorted4 = 0이면**: sorted5 있어도 Step 5c로 진행 (period3 기간으로 판단)  
-> **Step 5c 공제 정당 조건**: 조건A(초일+말일 출역) 또는 조건B(`allDates.includes(period3End)` 당일만). 이후 출역만으로는 부족
+> **Step 5c vs 5a**: 둘 다 `some(d >= periodEnd)` — 당일 포함 동일 방식
