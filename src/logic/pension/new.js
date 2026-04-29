@@ -1,6 +1,8 @@
 // 신규 국민연금 공제 로직
 import { getMonthKey, isFirstDayOfMonth, isLastDayOfMonth } from '../utils';
 
+const sortByDate = (a, b) => a.workDate.localeCompare(b.workDate);
+
 const applyDeduction = (siteCount, billingDates, eightSet, overSet) => {
   if (siteCount === 8) {
     eightSet.add(billingDates[7]);
@@ -17,7 +19,6 @@ export const calculatePensionDeduction = (groupedDates, workYear, workMonth, wag
   const allPrevMonth = groupedDates[getMonthKey(workYear, workMonth, -1)] || [];
   const allCurrentMonth = groupedDates[getMonthKey(workYear, workMonth, 0)] || [];
 
-  const sortByDate = (a, b) => a.workDate.localeCompare(b.workDate);
   const billingCurrentDates = [...allCurrentMonth].sort(sortByDate).map(i => i.workDate);
 
   const companyIds = [...new Set([
@@ -75,10 +76,12 @@ const PENSION_THRESHOLD = 2200000;
 export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth, wage, deductibles) => {
   console.log('%c[신규] 국민연금 환급 대상 체크 시작', 'color: #00aaff');
 
-  const sortByDate = (a, b) => a.workDate.localeCompare(b.workDate);
+  const threeMonthsAgoKey = getMonthKey(workYear, targetMonth, 0);
+  const [tmYear, tmMonth] = threeMonthsAgoKey.split('-').map(Number);
 
   const allFourMonthsAgo = [...(groupedDates[getMonthKey(workYear, targetMonth, -1)] || [])].sort(sortByDate);
-  const allThreeMonthsAgo = [...(groupedDates[getMonthKey(workYear, targetMonth, 0)] || [])].sort(sortByDate);
+  const allThreeMonthsAgo = [...(groupedDates[threeMonthsAgoKey] || [])].sort(sortByDate);
+  const allTwoMonthsAfter = groupedDates[getMonthKey(workYear, targetMonth, 1)] || [];
 
   const allDeductDates = [...(deductibles.eight || []), ...(deductibles.over || [])];
   const hasDeduction = allDeductDates.length > 0;
@@ -87,21 +90,14 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
   const billingCurrentCount = billingCurrentDates.length;
   const billingCurrentWage = billingCurrentCount * wage;
 
-  const threeMonthsAgoKey = getMonthKey(workYear, targetMonth, 0);
-  const [tmYear, tmMonth] = threeMonthsAgoKey.split('-').map(Number);
-
-  // 청구업체 초일+말일, 4개월전 — 반복문 밖에서 한 번만 계산
-  const billingWorkedOnFirst = billingCurrentDates.length > 0 &&
-    isFirstDayOfMonth(billingCurrentDates[0], tmYear, tmMonth);
-  const billingWorkedOnLast = billingCurrentDates.length > 0 &&
-    isLastDayOfMonth(billingCurrentDates[billingCurrentDates.length - 1], tmYear, tmMonth);
+  const billingWorkedOnFirst = billingCurrentCount > 0 && isFirstDayOfMonth(billingCurrentDates[0], tmYear, tmMonth);
+  const billingWorkedOnLast = billingCurrentCount > 0 && isLastDayOfMonth(billingCurrentDates[billingCurrentCount - 1], tmYear, tmMonth);
   const billingHasFour = allFourMonthsAgo.length > 0;
   const billingMeetsThreshold = billingCurrentCount >= 8 || billingCurrentWage >= PENSION_THRESHOLD;
 
   const refunds = [];
   const deducts = [];
 
-  // 실제 공제 vs 정당 공제 비교 → 초과분 환급 / 부족분 징수
   const reconcileDeduction = () => {
     const expectedDeductDates = billingCurrentCount >= 8
       ? billingCurrentDates.slice(7)
@@ -110,7 +106,6 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     deducts.push(...expectedDeductDates.filter(d => !allDeductDates.includes(d)));
   };
 
-  // 공제 이력이 있으면 현장 출역일 환급 표시
   const addSiteRefund = (siteWorkDates) => {
     if (hasDeduction) refunds.push(...siteWorkDates);
   };
@@ -126,61 +121,29 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     const siteCurrentWage = siteCurrentCount * wage;
 
     const hasSiteFour = siteFourMonthsAgo.length > 0;
-    const siteWorkedFirst = siteCurrentWorkDates.length > 0 &&
-      isFirstDayOfMonth(siteCurrentWorkDates[0], tmYear, tmMonth);
-    const siteWorkedLast = siteCurrentWorkDates.length > 0 &&
-      isLastDayOfMonth(siteCurrentWorkDates[siteCurrentWorkDates.length - 1], tmYear, tmMonth);
+    const siteWorkedFirst = siteCurrentWorkDates.length > 0 && isFirstDayOfMonth(siteCurrentWorkDates[0], tmYear, tmMonth);
+    const siteWorkedLast = siteCurrentWorkDates.length > 0 && isLastDayOfMonth(siteCurrentWorkDates[siteCurrentWorkDates.length - 1], tmYear, tmMonth);
     const siteMeetsThreshold = siteCurrentCount >= 8 || siteCurrentWage >= PENSION_THRESHOLD;
 
     if (hasSiteFour) {
-      // [1] 현장 4개월전 출역 O → 현장 임계값 → 청구업체 임계값
-      console.log(`[신규] 현장${companyId}: 현장 4개월전 출역 있음`);
-      if (siteMeetsThreshold) {
-        console.log(`[신규] 현장${companyId}: 현장 임계값 충족 → 공제 정산`);
-        reconcileDeduction();
-      } else if (billingMeetsThreshold) {
-        console.log(`[신규] 현장${companyId}: 현장 임계값 미달, 청구업체 임계값 충족 → 공제 정산`);
-        reconcileDeduction();
-      } else {
-        console.log(`[신규] 현장${companyId}: 임계값 미달 → 환급`);
-        addSiteRefund(siteCurrentWorkDates);
-      }
+      if (siteMeetsThreshold || billingMeetsThreshold) reconcileDeduction();
+      else addSiteRefund(siteCurrentWorkDates);
     } else if (billingHasFour) {
-      // [2] 현장 4개월전 X, 청구업체 4개월전 O → 청구업체 임계값만
-      console.log(`[신규] 현장${companyId}: 현장 4개월전 없음, 청구업체 4개월전 있음`);
-      if (billingMeetsThreshold) {
-        console.log(`[신규] 현장${companyId}: 청구업체 임계값 충족 → 공제 정산`);
-        reconcileDeduction();
-      } else {
-        console.log(`[신규] 현장${companyId}: 청구업체 임계값 미달 → 환급`);
-        addSiteRefund(siteCurrentWorkDates);
-      }
+      if (billingMeetsThreshold) reconcileDeduction();
+      else addSiteRefund(siteCurrentWorkDates);
     } else if (siteWorkedFirst && siteWorkedLast) {
-      // [3] 4개월전 없음, 현장 초일+말일 O → [1]과 동일 (현장 임계값 → 청구업체 임계값)
-      console.log(`[신규] 현장${companyId}: 현장 초일+말일 출역`);
-      if (siteMeetsThreshold) {
-        console.log(`[신규] 현장${companyId}: 현장 임계값 충족 → 공제 정산`);
-        reconcileDeduction();
-      } else if (billingMeetsThreshold) {
-        console.log(`[신규] 현장${companyId}: 현장 임계값 미달, 청구업체 임계값 충족 → 공제 정산`);
-        reconcileDeduction();
-      } else {
-        console.log(`[신규] 현장${companyId}: 임계값 미달 → 환급`);
-        addSiteRefund(siteCurrentWorkDates);
-      }
+      if (siteMeetsThreshold || billingMeetsThreshold) reconcileDeduction();
+      else addSiteRefund(siteCurrentWorkDates);
+    } else if (!siteWorkedLast && allTwoMonthsAfter.some(i => i.companyId === companyId)) {
+      if (siteMeetsThreshold) reconcileDeduction();
+      else addSiteRefund(siteCurrentWorkDates);
     } else if (billingWorkedOnFirst && billingWorkedOnLast) {
-      // [4] 4개월전 없음, 현장 초일/말일 X, 청구업체 초일+말일 O → [2]와 동일 (청구업체 임계값만)
-      console.log(`[신규] 현장${companyId}: 청구업체 초일+말일 출역`);
-      if (billingMeetsThreshold) {
-        console.log(`[신규] 현장${companyId}: 청구업체 임계값 충족 → 공제 정산`);
-        reconcileDeduction();
-      } else {
-        console.log(`[신규] 현장${companyId}: 청구업체 임계값 미달 → 환급`);
-        addSiteRefund(siteCurrentWorkDates);
-      }
+      if (billingMeetsThreshold) reconcileDeduction();
+      else addSiteRefund(siteCurrentWorkDates);
+    } else if (billingWorkedOnFirst && allTwoMonthsAfter.length > 0) {
+      if (billingCurrentCount >= 8) reconcileDeduction();
+      else addSiteRefund(siteCurrentWorkDates);
     } else {
-      // [5] 모든 연속근로 조건 미충족 → 환급
-      console.log(`[신규] 현장${companyId}: 연속근로 조건 미충족 → 환급`);
       addSiteRefund(siteCurrentWorkDates);
     }
   }

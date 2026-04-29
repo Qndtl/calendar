@@ -213,8 +213,7 @@ const Page = () => {
               title={title}
               shade={
                 (title === '국민' && (offset === -2 || offset === 2)) ||
-                (logicType === 'new' && title === '건강' && offset === 2) ||
-                (logicType === 'new' && title === '국민' && offset === 1)
+                (logicType === 'new' && title === '건강' && offset === 2)
               }
               deductibles={deductibleData}
               secondDeductibles={secondDeductiblesData}
