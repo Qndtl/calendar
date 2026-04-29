@@ -8,10 +8,13 @@ const CLICK_THRESHOLD = 5;
 const Calendar = ({
                     deductibles,
                     secondDeductibles,
+                    thirdDeductibles,
                     refundData = [],
                     secondRefundData = [],
+                    thirdRefundData = [],
                     healthDeductData = [],
                     secondHealthDeductData = [],
+                    thirdHealthDeductData = [],
                     stateDeductData = [],
                     title,
                     year,
@@ -27,7 +30,8 @@ const Calendar = ({
     isDragging: false,
     isRemoving: false,
     mouseDownPos: null,
-    isRightClick: false
+    isRightClick: false,
+    isShiftClick: false
   });
   const [selfDates, setSelfDates] = useState([]);
 
@@ -91,10 +95,16 @@ const Calendar = ({
     const selectedItem = totalSelectedDates.find(({ workDate }) => workDate === key);
 
     if (selectedItem) {
-      // companyId에 따른 다른 배경색 적용
       if (selectedItem.companyId === 2) {
         return {
-          backgroundColor: '#dc3545', // 붉은색 배경
+          backgroundColor: '#dc3545',
+          color: 'white',
+          fontWeight: 'bold'
+        };
+      }
+      if (selectedItem.companyId === 3) {
+        return {
+          backgroundColor: '#28a745',
           color: 'white',
           fontWeight: 'bold'
         };
@@ -112,7 +122,8 @@ const Calendar = ({
 
     const key = getDateKey(day);
     const isAlreadySelected = isDateSelected(key);
-    const isRightClick = e.button === 2; // 2는 우클릭
+    const isRightClick = e.button === 2;
+    const isShiftClick = e.button === 0 && e.shiftKey;
 
     setDragState({
       start: day,
@@ -120,7 +131,8 @@ const Calendar = ({
       isDragging: true,
       isRemoving: isAlreadySelected,
       mouseDownPos: { x: e.clientX, y: e.clientY },
-      isRightClick
+      isRightClick,
+      isShiftClick
     });
   }, [getDateKey, isDateSelected]);
 
@@ -136,7 +148,7 @@ const Calendar = ({
 
   // 드래그 종료
   const handleMouseUp = useCallback((e) => {
-    const { start, end, mouseDownPos, isRemoving, isRightClick } = dragState;
+    const { start, end, mouseDownPos, isRemoving, isRightClick, isShiftClick } = dragState;
 
     if (!start || !end) {
       setDragState(prev => ({ ...prev, isDragging: false }));
@@ -151,7 +163,7 @@ const Calendar = ({
 
     const rangeStart = Math.min(start, end);
     const rangeEnd = Math.max(start, end);
-    const companyId = isRightClick ? 2 : 1; // 우클릭이면 companyId 2, 좌클릭이면 1
+    const companyId = isRightClick ? 2 : isShiftClick ? 3 : 1;
 
     if (!hasMoved && start === end) {
       // 단순 클릭
@@ -195,7 +207,8 @@ const Calendar = ({
       isDragging: false,
       isRemoving: false,
       mouseDownPos: null,
-      isRightClick: false
+      isRightClick: false,
+      isShiftClick: false
     });
   }, [dragState, getDateKey, setTotalDates]);
 
@@ -209,6 +222,15 @@ const Calendar = ({
     setDragState(prev => ({ ...prev, isDragging: false }));
   }, []);
 
+  const COMPANY_COLORS = { 1: '#4a90e2', 2: '#dc3545', 3: '#28a745' };
+
+  const getPensionBoxShadow = useCallback((key) => {
+    const item = totalSelectedDates.find(({ workDate }) => workDate === key);
+    if (!item) return '';
+    const color = COMPANY_COLORS[item.companyId];
+    return color ? `inset 0 0 0 6px ${color}` : '';
+  }, [totalSelectedDates]);
+
   // 셀 스타일 계산 (기존 공제/환급 스타일 우선 적용)
   const getCellStyle = useCallback((date) => {
     if (!date) return {};
@@ -216,21 +238,22 @@ const Calendar = ({
     const key = getDateKey(date);
     const isEight = deductibles?.eight.includes(key);
     const isSecondEight = secondDeductibles?.eight.includes(key);
+    const isThirdEight = thirdDeductibles?.eight.includes(key);
     const isOverEight = deductibles?.over.includes(key);
     const isSecondOverEight = secondDeductibles?.over.includes(key);
+    const isThirdOverEight = thirdDeductibles?.over.includes(key);
 
-    // 공제/환급 스타일이 있으면 우선 적용
     if (isEight) return {
       backgroundColor: 'black',
       color: 'white',
       fontWeight: 'bold',
-      boxShadow: title === '국민' ? '' : 'inset 0 0 0 6px #4a90e2'
+      boxShadow: title === '국민' ? getPensionBoxShadow(key) : 'inset 0 0 0 6px #4a90e2'
     };
     if (isOverEight) return {
       backgroundColor: 'grey',
       color: 'white',
       fontWeight: 'bold',
-      boxShadow: title === '국민' ? '' : 'inset 0 0 0 6px #4a90e2'
+      boxShadow: title === '국민' ? getPensionBoxShadow(key) : 'inset 0 0 0 6px #4a90e2'
     };
     if (isSecondEight) return {
       backgroundColor: 'black',
@@ -244,11 +267,23 @@ const Calendar = ({
       fontWeight: 'bold',
       boxShadow: title === '국민' ? '' : 'inset 0 0 0 6px #dc3545'
     };
+    if (isThirdEight) return {
+      backgroundColor: 'black',
+      color: 'white',
+      fontWeight: 'bold',
+      boxShadow: title === '국민' ? '' : 'inset 0 0 0 6px #28a745'
+    };
+    if (isThirdOverEight) return {
+      backgroundColor: 'grey',
+      color: 'white',
+      fontWeight: 'bold',
+      boxShadow: title === '국민' ? '' : 'inset 0 0 0 6px #28a745'
+    };
 
 
     // 그렇지 않으면 회사별 선택 스타일 적용
     return getSelectedStyle(date);
-  }, [getDateKey, deductibles, secondDeductibles, getSelectedStyle, title]);
+  }, [getDateKey, deductibles, secondDeductibles, thirdDeductibles, getSelectedStyle, title, getPensionBoxShadow]);
 
   // 요일별 클래스명 생성
   const getDayClassName = useCallback((dayIndex) => {
@@ -293,13 +328,14 @@ const Calendar = ({
           const isSelected = isDateSelected(key);
           const isRefund = refundData.includes(key);
           const isSecondRefund = secondRefundData.includes(key);
-          const isHealthDeduct = healthDeductData.includes(key) || secondHealthDeductData.includes(key);
+          const isThirdRefund = thirdRefundData.includes(key);
+          const isHealthDeduct = healthDeductData.includes(key) || secondHealthDeductData.includes(key) || thirdHealthDeductData.includes(key);
           const isStateDeduct = stateDeductData.includes(key);
           const cellStyle = getCellStyle(date);
 
           // companyId 2인 경우는 selected 클래스를 적용하지 않음 (붉은색 배경 우선)
           const selectedItem = date ? totalSelectedDates.find(({ workDate }) => workDate === key) : null;
-          const shouldApplySelectedClass = isSelected && (!selectedItem || selectedItem.companyId !== 2);
+          const shouldApplySelectedClass = isSelected && (!selectedItem || (selectedItem.companyId !== 2 && selectedItem.companyId !== 3));
 
           return (
             <div
@@ -316,7 +352,7 @@ const Calendar = ({
               }}
             >
               {date || ''}
-              {(isRefund || isSecondRefund) && (
+              {(isRefund || isSecondRefund || isThirdRefund) && (
                 <div className="refund-indicator"></div>
               )}
               {(isHealthDeduct || isStateDeduct) && (

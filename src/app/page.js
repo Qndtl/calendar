@@ -44,6 +44,7 @@ const MONTH_OPTIONS = [
 const groupDatesByYearMonth = (dateArray) => {
   const grouped = {};
   const second = {};
+  const third = {};
   dateArray.forEach(({ companyId, workDate }) => {
     const [year, month] = workDate.split('-');
     const key = `${year}-${month}`;
@@ -59,8 +60,14 @@ const groupDatesByYearMonth = (dateArray) => {
     if(companyId === 2) {
       second[key].push(workDate);
     }
+    if (!third[key]) {
+      third[key] = [];
+    }
+    if(companyId === 3) {
+      third[key].push(workDate);
+    }
   });
-  return {grouped, second};
+  return {grouped, second, third};
 };
 
 const stateGroupDatesByYearMonth = (dateArray, wage) => {
@@ -85,8 +92,11 @@ const Page = () => {
   const [stateDeductibles, setStateDeductibles] = useState({ eight: [], over: [] });
   const [refunds, setRefunds] = useState([]);
   const [secondRefunds, setSecondRefunds] = useState([]);
+  const [thirdRefunds, setThirdRefunds] = useState([]);
   const [healthDeducts, setHealthDeducts] = useState([]);
   const [secondHealthDeducts, setSecondHealthDeducts] = useState([]);
+  const [thirdHealthDeducts, setThirdHealthDeducts] = useState([]);
+  const [thirdDeductibles, setThirdDeductibles] = useState({ eight: [], over: [] });
   const [stateRefunds, setStateRefunds] = useState([]);
   const [stateDeducts, setStateDeducts] = useState([]);
   const [wage, setWage] = useState(150000);
@@ -156,6 +166,10 @@ const Page = () => {
     const secondDeductibleDates = checkDeductibleDates(healthGroupedDates.second, 2);
     setSecondDeductibles(secondDeductibleDates);
 
+    // 건강보험 공제 건설사3
+    const thirdDeductibleDates = checkDeductibleDates(healthGroupedDates.third, 3);
+    setThirdDeductibles(thirdDeductibleDates);
+
     // 국민연금 공제
     const stateDeductibleDates = checkStateDeductibleDates(stateGroupedDates);
     setStateDeductibles(stateDeductibleDates);
@@ -174,6 +188,13 @@ const Page = () => {
     setSecondRefunds(refundDates2);
     setSecondHealthDeducts(deductDates2);
 
+    // 건강보험 환급 건설사3
+    const refundResult3 = checkRefundDates(healthGroupedDates.third, thirdDeductibleDates, 3);
+    const refundDates3 = Array.isArray(refundResult3) ? refundResult3 : refundResult3.refunds;
+    const deductDates3 = Array.isArray(refundResult3) ? [] : refundResult3.deducts;
+    setThirdRefunds(refundDates3);
+    setThirdHealthDeducts(deductDates3);
+
     // 국민연금 환급 및 징수
     const stateRefundAndDeducts = checkStateRefundDates(stateGroupedDates, stateDeductibleDates);
     setStateRefunds(stateRefundAndDeducts.refunds);
@@ -181,7 +202,7 @@ const Page = () => {
 
   }, [wage, workYear, workMonth, checkDeductibleDates, totalSelectedDates, checkStateDeductibleDates, checkRefundDates, checkStateRefundDates]);
 
-  const renderCalendarRow = (title, deductibleData, secondDeductibles, refundData, secondRefundData, healthDeductData = [], secondHealthDeductData = [], stateDeductData) => (
+  const renderCalendarRow = (title, deductibleData, secondDeductiblesData, thirdDeductiblesData, refundData, secondRefundData, thirdRefundData, healthDeductData = [], secondHealthDeductData = [], thirdHealthDeductData = [], stateDeductData) => (
     <div style={{ width: '100%', maxWidth: '100%' }}>
       <h2 style={{ textAlign: 'center', margin: '8px 0 4px' }}>{title}</h2>
       <div style={{ overflowX: 'auto', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', paddingBottom: '4px' }}>
@@ -190,13 +211,20 @@ const Page = () => {
             <Calendar
               key={offset}
               title={title}
-              shade={title === '국민' && (offset === -2 || offset === 2)}
+              shade={
+                (title === '국민' && (offset === -2 || offset === 2)) ||
+                (logicType === 'new' && title === '건강' && offset === 2) ||
+                (logicType === 'new' && title === '국민' && offset === 1)
+              }
               deductibles={deductibleData}
-              secondDeductibles={secondDeductibles}
+              secondDeductibles={secondDeductiblesData}
+              thirdDeductibles={thirdDeductiblesData}
               refundData={refundData}
               secondRefundData={secondRefundData}
+              thirdRefundData={thirdRefundData}
               healthDeductData={healthDeductData}
               secondHealthDeductData={secondHealthDeductData}
+              thirdHealthDeductData={thirdHealthDeductData}
               stateDeductData={stateDeductData}
               {...getCalendarProps(offset)}
             />
@@ -268,8 +296,8 @@ const Page = () => {
         </select>
       </div>
 
-      {renderCalendarRow("건강", deductibles, secondDeductibles, refunds, secondRefunds, healthDeducts, secondHealthDeducts)}
-      {renderCalendarRow("국민", stateDeductibles, {eight: [], over: []}, stateRefunds, [], [], [], stateDeducts)}
+      {renderCalendarRow("건강", deductibles, secondDeductibles, thirdDeductibles, refunds, secondRefunds, thirdRefunds, healthDeducts, secondHealthDeducts, thirdHealthDeducts)}
+      {renderCalendarRow("국민", stateDeductibles, {eight: [], over: []}, {eight: [], over: []}, stateRefunds, [], [], [], [], [], stateDeducts)}
     </div>
   );
 }

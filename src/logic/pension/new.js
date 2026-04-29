@@ -33,12 +33,10 @@ export const calculatePensionDeduction = (groupedDates, workYear, workMonth, wag
     const sitePrevMonth = allPrevMonth.filter(item => item.companyId === companyId);
     const siteCurrentMonth = [...allCurrentMonth.filter(item => item.companyId === companyId)].sort(sortByDate);
 
-    // STEP 1: 현장 전월 출역 확인
     if (sitePrevMonth.length >= 1) {
       console.log(`현장${companyId} 전월 출역 있음 → STEP 3`);
       applyDeduction(siteCurrentMonth.length, billingCurrentDates, eightSet, overSet);
     } else {
-      // STEP 2: 현장 당월 초일 출역 여부
       const workedOnFirst = isFirstDayOfMonth(siteCurrentMonth[0]?.workDate, workYear, parseInt(workMonth));
       if (workedOnFirst) {
         console.log(`현장${companyId} 전월 출역 없음 + 당월 초일 출역 → STEP 3`);
@@ -50,13 +48,11 @@ export const calculatePensionDeduction = (groupedDates, workYear, workMonth, wag
     }
   }
 
-  // STEP 4-6: 청구업체 체크 (현장 탈락 시)
   if (needsBillingCheck) {
     if (allPrevMonth.length >= 1) {
       console.log('청구업체 전월 출역 있음 → STEP 6');
       applyDeduction(billingCurrentDates.length, billingCurrentDates, eightSet, overSet);
     } else {
-      // STEP 5: 청구업체 당월 초일 출역 여부
       const billingWorkedOnFirst = isFirstDayOfMonth(billingCurrentDates[0], workYear, parseInt(workMonth));
       if (billingWorkedOnFirst) {
         console.log('청구업체 당월 초일 출역 → STEP 6');
@@ -73,116 +69,54 @@ export const calculatePensionDeduction = (groupedDates, workYear, workMonth, wag
   };
 };
 
+const PENSION_THRESHOLD = 2200000;
+
 // 신규 국민연금 환급 로직
 export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth, wage, deductibles) => {
   console.log('%c[신규] 국민연금 환급 대상 체크 시작', 'color: #00aaff');
-  console.log('[신규] wage:', wage, '/ targetMonth:', targetMonth, '/ workYear:', workYear);
-  console.log('[신규] deductibles:', deductibles);
-
-  const PENSION_THRESHOLD = 2200000;
 
   const sortByDate = (a, b) => a.workDate.localeCompare(b.workDate);
 
-  const allFourMonthsAgo = (groupedDates[getMonthKey(workYear, targetMonth, -1)] || []).sort(sortByDate);
-  const allThreeMonthsAgo = (groupedDates[getMonthKey(workYear, targetMonth, 0)] || []).sort(sortByDate);
+  const allFourMonthsAgo = [...(groupedDates[getMonthKey(workYear, targetMonth, -1)] || [])].sort(sortByDate);
+  const allThreeMonthsAgo = [...(groupedDates[getMonthKey(workYear, targetMonth, 0)] || [])].sort(sortByDate);
 
   const allDeductDates = [...(deductibles.eight || []), ...(deductibles.over || [])];
-  const billingHasDeduction = allDeductDates.length > 0;
+  const hasDeduction = allDeductDates.length > 0;
 
-  // 청구업체(전체) 기준
   const billingCurrentDates = allThreeMonthsAgo.map(i => i.workDate);
   const billingCurrentCount = billingCurrentDates.length;
   const billingCurrentWage = billingCurrentCount * wage;
 
-  // 3개월 전월 키에서 년/월 추출 (isFirstDayOfMonth, isLastDayOfMonth에 사용)
   const threeMonthsAgoKey = getMonthKey(workYear, targetMonth, 0);
   const [tmYear, tmMonth] = threeMonthsAgoKey.split('-').map(Number);
 
-  // 청구업체 3개월 전 초일/말일 출역 여부
+  // 청구업체 초일+말일, 4개월전 — 반복문 밖에서 한 번만 계산
   const billingWorkedOnFirst = billingCurrentDates.length > 0 &&
     isFirstDayOfMonth(billingCurrentDates[0], tmYear, tmMonth);
   const billingWorkedOnLast = billingCurrentDates.length > 0 &&
     isLastDayOfMonth(billingCurrentDates[billingCurrentDates.length - 1], tmYear, tmMonth);
+  const billingHasFour = allFourMonthsAgo.length > 0;
+  const billingMeetsThreshold = billingCurrentCount >= 8 || billingCurrentWage >= PENSION_THRESHOLD;
 
   const refunds = [];
   const deducts = [];
 
-  // STEP 11: 공제 금액 비교 → 환급 or 징수
-  // - 8일 기준 충족: 8번째 이후 날짜만 공제 대상
-  // - 노임 기준 충족 (8일 미만): 전체 출역일이 공제 대상
-  // allDeductDates = 실제 공제된 날짜
-  // 실제 > 공제됐어야 할 → 초과분 환급
-  // 실제 < 공제됐어야 할 → 부족분 징수
-  const handleStep11 = () => {
-    console.log('%c[신규] STEP 11: 공제 금액 비교 → 환급 or 징수', 'color: #FFA500');
+  // 실제 공제 vs 정당 공제 비교 → 초과분 환급 / 부족분 징수
+  const reconcileDeduction = () => {
     const expectedDeductDates = billingCurrentCount >= 8
-      ? billingCurrentDates.slice(7)   // 8일 기준: 8번째 이후
-      : billingCurrentDates;           // 노임 기준: 전체 날짜
-
-    const overDeducted = allDeductDates.filter(d => !expectedDeductDates.includes(d));
-    if (overDeducted.length > 0) {
-      console.log(`[신규] STEP 11: 초과 공제 ${overDeducted.length}건 → 환급`);
-      refunds.push(...overDeducted);
-    }
-
-    const underDeducted = expectedDeductDates.filter(d => !allDeductDates.includes(d));
-    if (underDeducted.length > 0) {
-      console.log(`[신규] STEP 11: 미공제 ${underDeducted.length}건 → 징수`);
-      deducts.push(...underDeducted);
-    }
-
-    if (overDeducted.length === 0 && underDeducted.length === 0) {
-      console.log('[신규] STEP 11: 공제 금액 일치 → 처리 없음');
-    }
+      ? billingCurrentDates.slice(7)
+      : billingCurrentDates;
+    refunds.push(...allDeductDates.filter(d => !expectedDeductDates.includes(d)));
+    deducts.push(...expectedDeductDates.filter(d => !allDeductDates.includes(d)));
   };
 
-  // STEP 8-9: 청구업체 합산 출역/노임 확인
-  const handleStep8 = () => {
-    if (billingCurrentCount >= 8) {
-      console.log('[신규] STEP 8: 청구업체 합산 출역 >= 8 → STEP 11');
-      handleStep11();
-      return;
-    }
-    console.log('[신규] STEP 8: 청구업체 합산 출역 < 8 → STEP 9');
-
-    if (billingCurrentWage >= PENSION_THRESHOLD) {
-      console.log('[신규] STEP 9: 청구업체 합산 노임 >= 220 → STEP 11');
-      handleStep11();
-      return;
-    }
-    console.log('[신규] STEP 9: 청구업체 합산 노임 < 220 → 공제 비대상 → 환급');
-    if (billingHasDeduction) {
-      refunds.push(...billingCurrentDates);
-    }
-  };
-
-  // STEP 6-7: 청구업체 초일/말일 출역 확인
-  const handleStep6 = () => {
-    if (!billingWorkedOnFirst) {
-      console.log('[신규] STEP 6: 청구업체 3개월 전 초일 미출역 → 공제 비대상 → 환급');
-      if (billingHasDeduction) {
-        refunds.push(...billingCurrentDates);
-      }
-      return;
-    }
-    console.log('[신규] STEP 6: 청구업체 3개월 전 초일 출역 → STEP 7');
-
-    if (!billingWorkedOnLast) {
-      console.log('[신규] STEP 7: 청구업체 3개월 전 말일 미출역 → 공제 비대상 → 환급');
-      if (billingHasDeduction) {
-        refunds.push(...billingCurrentDates);
-      }
-      return;
-    }
-    console.log('[신규] STEP 7: 청구업체 3개월 전 말일 출역 → STEP 8');
-    handleStep8();
+  // 공제 이력이 있으면 현장 출역일 환급 표시
+  const addSiteRefund = (siteWorkDates) => {
+    if (hasDeduction) refunds.push(...siteWorkDates);
   };
 
   const companyIds = [...new Set(allThreeMonthsAgo.map(i => i.companyId))];
-
-  if (companyIds.length === 0) {
-    return { refunds: [], deducts: [] };
-  }
+  if (companyIds.length === 0) return { refunds: [], deducts: [] };
 
   for (const companyId of companyIds) {
     const siteFourMonthsAgo = allFourMonthsAgo.filter(i => i.companyId === companyId);
@@ -191,71 +125,63 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     const siteCurrentCount = siteCurrentMonth.length;
     const siteCurrentWage = siteCurrentCount * wage;
 
-    // STEP 1: 현장 4개월 전 출역 >= 1 → 이전 flow와 동일
-    if (siteFourMonthsAgo.length >= 1) {
-      console.log(`[신규] STEP 1: 현장${companyId} 4개월 전 출역 있음 → 이전 flow와 동일`);
-      if (siteCurrentCount >= 8) {
-        console.log(`[신규] 이전 flow: 3개월 전 8일 이상 → STEP 11`);
-        handleStep11();
-      } else if (siteCurrentWage >= PENSION_THRESHOLD) {
-        console.log(`[신규] 이전 flow: 3개월 전 노임 220 이상 → STEP 11`);
-        handleStep11();
-      } else {
-        console.log(`[신규] 이전 flow: 3개월 전 출역/노임 미충족 → 환급`);
-        if (billingHasDeduction) {
-          refunds.push(...billingCurrentDates);
-        }
-      }
-      continue;
-    }
-
-    console.log(`[신규] STEP 1: 현장${companyId} 4개월 전 출역 없음 → STEP 2`);
-
-    // STEP 2: 현장 3개월 전 초일 출역 여부
-    const siteWorkedOnFirst = siteCurrentWorkDates.length > 0 &&
+    const hasSiteFour = siteFourMonthsAgo.length > 0;
+    const siteWorkedFirst = siteCurrentWorkDates.length > 0 &&
       isFirstDayOfMonth(siteCurrentWorkDates[0], tmYear, tmMonth);
-
-    if (!siteWorkedOnFirst) {
-      console.log(`[신규] STEP 2: 현장${companyId} 3개월 전 초일 미출역 → STEP 6`);
-      handleStep6();
-      continue;
-    }
-    console.log(`[신규] STEP 2: 현장${companyId} 3개월 전 초일 출역 → STEP 3`);
-
-    // STEP 3: 현장 3개월 전 말일 출역 여부
-    const siteWorkedOnLast = siteCurrentWorkDates.length > 0 &&
+    const siteWorkedLast = siteCurrentWorkDates.length > 0 &&
       isLastDayOfMonth(siteCurrentWorkDates[siteCurrentWorkDates.length - 1], tmYear, tmMonth);
+    const siteMeetsThreshold = siteCurrentCount >= 8 || siteCurrentWage >= PENSION_THRESHOLD;
 
-    if (!siteWorkedOnLast) {
-      console.log(`[신규] STEP 3: 현장${companyId} 3개월 전 말일 미출역 → STEP 6`);
-      handleStep6();
-      continue;
-    }
-    console.log(`[신규] STEP 3: 현장${companyId} 3개월 전 말일 출역 → STEP 4`);
-
-    // STEP 4: 현장 3개월 전 출역 수 >= 8
-    if (siteCurrentCount >= 8) {
-      console.log(`[신규] STEP 4: 현장${companyId} 출역 >= 8 → STEP 11`);
-      handleStep11();
-      continue;
-    }
-    console.log(`[신규] STEP 4: 현장${companyId} 출역 < 8 → STEP 5`);
-
-    // STEP 5: 현장 3개월 전 노임 >= 220
-    if (siteCurrentWage >= PENSION_THRESHOLD) {
-      console.log(`[신규] STEP 5: 현장${companyId} 노임 >= 220 → STEP 11`);
-      handleStep11();
-      continue;
-    }
-    console.log(`[신규] STEP 5: 현장${companyId} 노임 < 220 → STEP 10`);
-
-    // STEP 10: 청구업체 3개월 전 공제 값 = 1 (공제 이력 존재) 여부
-    if (billingHasDeduction) {
-      console.log(`[신규] STEP 10: 청구업체 공제 값 = 1 → 공제 비대상 → 환급`);
-      refunds.push(...billingCurrentDates);
+    if (hasSiteFour) {
+      // [1] 현장 4개월전 출역 O → 현장 임계값 → 청구업체 임계값
+      console.log(`[신규] 현장${companyId}: 현장 4개월전 출역 있음`);
+      if (siteMeetsThreshold) {
+        console.log(`[신규] 현장${companyId}: 현장 임계값 충족 → 공제 정산`);
+        reconcileDeduction();
+      } else if (billingMeetsThreshold) {
+        console.log(`[신규] 현장${companyId}: 현장 임계값 미달, 청구업체 임계값 충족 → 공제 정산`);
+        reconcileDeduction();
+      } else {
+        console.log(`[신규] 현장${companyId}: 임계값 미달 → 환급`);
+        addSiteRefund(siteCurrentWorkDates);
+      }
+    } else if (billingHasFour) {
+      // [2] 현장 4개월전 X, 청구업체 4개월전 O → 청구업체 임계값만
+      console.log(`[신규] 현장${companyId}: 현장 4개월전 없음, 청구업체 4개월전 있음`);
+      if (billingMeetsThreshold) {
+        console.log(`[신규] 현장${companyId}: 청구업체 임계값 충족 → 공제 정산`);
+        reconcileDeduction();
+      } else {
+        console.log(`[신규] 현장${companyId}: 청구업체 임계값 미달 → 환급`);
+        addSiteRefund(siteCurrentWorkDates);
+      }
+    } else if (siteWorkedFirst && siteWorkedLast) {
+      // [3] 4개월전 없음, 현장 초일+말일 O → [1]과 동일 (현장 임계값 → 청구업체 임계값)
+      console.log(`[신규] 현장${companyId}: 현장 초일+말일 출역`);
+      if (siteMeetsThreshold) {
+        console.log(`[신규] 현장${companyId}: 현장 임계값 충족 → 공제 정산`);
+        reconcileDeduction();
+      } else if (billingMeetsThreshold) {
+        console.log(`[신규] 현장${companyId}: 현장 임계값 미달, 청구업체 임계값 충족 → 공제 정산`);
+        reconcileDeduction();
+      } else {
+        console.log(`[신규] 현장${companyId}: 임계값 미달 → 환급`);
+        addSiteRefund(siteCurrentWorkDates);
+      }
+    } else if (billingWorkedOnFirst && billingWorkedOnLast) {
+      // [4] 4개월전 없음, 현장 초일/말일 X, 청구업체 초일+말일 O → [2]와 동일 (청구업체 임계값만)
+      console.log(`[신규] 현장${companyId}: 청구업체 초일+말일 출역`);
+      if (billingMeetsThreshold) {
+        console.log(`[신규] 현장${companyId}: 청구업체 임계값 충족 → 공제 정산`);
+        reconcileDeduction();
+      } else {
+        console.log(`[신규] 현장${companyId}: 청구업체 임계값 미달 → 환급`);
+        addSiteRefund(siteCurrentWorkDates);
+      }
     } else {
-      console.log(`[신규] STEP 10: 청구업체 공제 값 = 0 → STEP 8`);
-      handleStep8();
+      // [5] 모든 연속근로 조건 미충족 → 환급
+      console.log(`[신규] 현장${companyId}: 연속근로 조건 미충족 → 환급`);
+      addSiteRefund(siteCurrentWorkDates);
     }
   }
 
