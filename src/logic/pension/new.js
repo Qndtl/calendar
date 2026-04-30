@@ -125,27 +125,16 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     const siteWorkedLast = siteCurrentWorkDates.length > 0 && isLastDayOfMonth(siteCurrentWorkDates[siteCurrentWorkDates.length - 1], tmYear, tmMonth);
     const siteMeetsThreshold = siteCurrentCount >= 8 || siteCurrentWage >= PENSION_THRESHOLD;
 
-    if (hasSiteFour) {
-      if (siteMeetsThreshold || billingMeetsThreshold) reconcileDeduction();
-      else addSiteRefund(siteCurrentWorkDates);
-    } else if (billingHasFour) {
-      if (billingMeetsThreshold) reconcileDeduction();
-      else addSiteRefund(siteCurrentWorkDates);
-    } else if (siteWorkedFirst && siteWorkedLast) {
-      if (siteMeetsThreshold || billingMeetsThreshold) reconcileDeduction();
-      else addSiteRefund(siteCurrentWorkDates);
-    } else if (!siteWorkedLast && allTwoMonthsAfter.some(i => i.companyId === companyId)) {
-      if (siteMeetsThreshold) reconcileDeduction();
-      else addSiteRefund(siteCurrentWorkDates);
-    } else if (billingWorkedOnFirst && billingWorkedOnLast) {
-      if (billingMeetsThreshold) reconcileDeduction();
-      else addSiteRefund(siteCurrentWorkDates);
-    } else if (billingWorkedOnFirst && allTwoMonthsAfter.length > 0) {
-      if (billingCurrentCount >= 8) reconcileDeduction();
-      else addSiteRefund(siteCurrentWorkDates);
-    } else {
-      addSiteRefund(siteCurrentWorkDates);
-    }
+    const shouldReconcile = (() => {
+      if (hasSiteFour || (siteWorkedFirst && siteWorkedLast)) return siteMeetsThreshold || billingMeetsThreshold;
+      if (billingHasFour || (billingWorkedOnFirst && billingWorkedOnLast)) return billingMeetsThreshold;
+      if (siteWorkedFirst && !siteWorkedLast && allTwoMonthsAfter.some(i => i.companyId === companyId)) return siteMeetsThreshold;
+      if (billingWorkedOnFirst && allTwoMonthsAfter.length > 0) return billingCurrentCount >= 8;
+      return false;
+    })();
+
+    if (shouldReconcile) reconcileDeduction();
+    else addSiteRefund(siteCurrentWorkDates);
   }
 
   return {
