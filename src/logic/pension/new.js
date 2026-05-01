@@ -21,47 +21,14 @@ export const calculatePensionDeduction = (groupedDates, workYear, workMonth, wag
 
   const billingCurrentDates = [...allCurrentMonth].sort(sortByDate).map(i => i.workDate);
 
-  const companyIds = [...new Set([
-    ...allPrevMonth.map(item => item.companyId),
-    ...allCurrentMonth.map(item => item.companyId),
-  ])];
-
   const eightSet = new Set();
   const overSet = new Set();
-  let needsBillingCheck = false;
 
-  for (const companyId of companyIds) {
-    const sitePrevMonth = allPrevMonth.filter(item => item.companyId === companyId);
-    const siteCurrentMonth = [...allCurrentMonth.filter(item => item.companyId === companyId)].sort(sortByDate);
+  const billingHasPrev = allPrevMonth.length >= 1;
+  const billingWorkedOnFirst = isFirstDayOfMonth(billingCurrentDates[0], workYear, parseInt(workMonth));
 
-    if (sitePrevMonth.length >= 1) {
-      console.log(`현장${companyId} 전월 출역 있음 → STEP 3`);
-      applyDeduction(siteCurrentMonth.length, billingCurrentDates, eightSet, overSet);
-    } else {
-      const workedOnFirst = isFirstDayOfMonth(siteCurrentMonth[0]?.workDate, workYear, parseInt(workMonth));
-      if (workedOnFirst) {
-        console.log(`현장${companyId} 전월 출역 없음 + 당월 초일 출역 → STEP 3`);
-        applyDeduction(siteCurrentMonth.length, billingCurrentDates, eightSet, overSet);
-      } else {
-        console.log(`현장${companyId} 전월 출역 없음 + 당월 초일 미출역 → 청구업체 체크`);
-        needsBillingCheck = true;
-      }
-    }
-  }
-
-  if (needsBillingCheck) {
-    if (allPrevMonth.length >= 1) {
-      console.log('청구업체 전월 출역 있음 → STEP 6');
-      applyDeduction(billingCurrentDates.length, billingCurrentDates, eightSet, overSet);
-    } else {
-      const billingWorkedOnFirst = isFirstDayOfMonth(billingCurrentDates[0], workYear, parseInt(workMonth));
-      if (billingWorkedOnFirst) {
-        console.log('청구업체 당월 초일 출역 → STEP 6');
-        applyDeduction(billingCurrentDates.length, billingCurrentDates, eightSet, overSet);
-      } else {
-        console.log('청구업체 당월 초일 미출역 → 공제 비대상');
-      }
-    }
+  if (billingHasPrev || billingWorkedOnFirst) {
+    applyDeduction(billingCurrentDates.length, billingCurrentDates, eightSet, overSet);
   }
 
   return {
@@ -103,7 +70,11 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
       ? billingCurrentDates.slice(7)
       : billingCurrentDates;
     refunds.push(...allDeductDates.filter(d => !expectedDeductDates.includes(d)));
-    deducts.push(...expectedDeductDates.filter(d => !allDeductDates.includes(d)));
+    const missing = expectedDeductDates.filter(d => !allDeductDates.includes(d));
+    deducts.push(...missing);
+    if (billingCurrentCount >= 8 && missing.includes(billingCurrentDates[7])) {
+      deducts.push(...billingCurrentDates.slice(0, 7).filter(d => !allDeductDates.includes(d)));
+    }
   };
 
   const addSiteRefund = (siteWorkDates) => {
