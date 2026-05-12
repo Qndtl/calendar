@@ -99,7 +99,7 @@ export const calculateStatePensionRefund = (groupedDates, workYear, targetMonth,
     const shouldReconcile = (() => {
       if (hasSiteFour || (siteWorkedFirst && siteWorkedLast)) return siteMeetsThreshold || billingMeetsThreshold;
       if (billingHasFour || (billingWorkedOnFirst && billingWorkedOnLast)) return billingMeetsThreshold;
-      if (siteWorkedFirst && !siteWorkedLast && allTwoMonthsAfter.some(i => i.companyId === companyId)) return siteMeetsThreshold;
+      if (siteWorkedFirst && !siteWorkedLast && allTwoMonthsAfter.some(i => i.companyId === companyId)) return siteMeetsThreshold || billingMeetsThreshold;
       if (billingWorkedOnFirst && allTwoMonthsAfter.length > 0) return billingCurrentCount >= 8;
       return false;
     })();
